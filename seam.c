@@ -52,8 +52,7 @@ int build_matrix(void){
     // parse ppm image to fill in the matrix; 
     char pixel_buf[1500];   // TODO: only need to fit in24 numbers separated by space; 
     char *buf_ptr = pixel_buf;
-    // fgets(pixel_buf, 1500 , ppm_file);
-   
+
     // PARSE pixel info from pixel_buf and fill the matrix
     int i; 
 
@@ -78,10 +77,6 @@ int build_matrix(void){
         printf("offset = %d, (%d, %d, %d)\n", offset, R, G, B); // test
         buf_ptr = buf_ptr + offset; // move pointer to next number;
 
-        // if (!strcmp(buf_ptr, "\n")){
-        //     printf("here--- egde \n");
-        //     buf_ptr ++;
-        // }
         if (i == 10)
             break;
     }
