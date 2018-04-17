@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 typedef struct pixel {
     int R;
@@ -10,4 +11,4 @@ typedef struct pixel {
 } pixel_t;
 
 int build_matrix(void);
-void find_energy_map(pixel_t** imagePixelArray, double** energy_array, num_rows, num_cols);
+void find_energy_map(pixel_t** image_pixel_array, double** energy_array, int num_rows, int num_cols);

@@ -15,7 +15,7 @@
 
 int main(){
     int num_rows;
-    int num_cols
+    int num_cols;
     pixel_t*** image_pixel_array;
     // char *file_path = "./images/tower.ppm";
     // pass in pointers for image array pointer, width, height
@@ -24,8 +24,9 @@ int main(){
     // alloc mem for energy array
     double** energy_array = malloc(sizeof(double*) * num_rows);
     int row;
-    for (row = 0; row < NUMBER OF ROWS; row++) {
-        energyArray[row] = malloc(sizeof(double) * num_cols);
+    // for (row = 0; row < NUMBER OF ROWS; row++) {
+    for (row = 0; row < num_rows; row++) {
+        energy_array[row] = malloc(sizeof(double) * num_cols);
     }
 
     // compute energy map and store in engery_array
@@ -121,7 +122,7 @@ int build_matrix(void){
 //     return 0;
 // }   
 
-double pixel_difference(pixel_t* pU, pixel_t* pD, pixel_t* pL, pixel_t* pR) {
+double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     // find partial derivatives for x
     int dxR = abs(pR.R - pL.R);
     int dxG = abs(pR.G - pL.G);
@@ -140,7 +141,7 @@ double pixel_difference(pixel_t* pU, pixel_t* pD, pixel_t* pL, pixel_t* pR) {
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
-void find_energy_map(pixel_t*** image_pixel_array, double** energy_array, num_rows, num_cols) {
+void find_energy_map(pixel_t** image_pixel_array, double** energy_array, int num_rows, int num_cols) {
     int i;
     for (i = 0; i < num_rows; i++) {
         int j;
