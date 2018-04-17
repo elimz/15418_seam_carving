@@ -10,4 +10,4 @@ typedef struct pixel {
 } pixel_t;
 
 int build_matrix(void);
-int find_energy_map(pixel_t** imagePixelArray);
+void find_energy_map(pixel_t** imagePixelArray);
