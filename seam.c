@@ -4,10 +4,38 @@
 // 1. command line, convert jpg/png format into ppm; 
 //  "convert source.png -compress none dest.ppm" // require imageMagick
 
+#include <math.h>
+
 #ifndef SEAM_H
 #include "seam.h"
 #define SEAM_H
 #endif
+
+#define MAX_ENERGY 550.0;
+
+int main(){
+    int num_rows;
+    int num_cols
+    pixel_t*** image_pixel_array;
+    // char *file_path = "./images/tower.ppm";
+    // pass in pointers for image array pointer, width, height
+    build_matrix();
+
+    // alloc mem for energy array
+    double** energy_array = malloc(sizeof(double*) * num_rows);
+    int row;
+    for (row = 0; row < NUMBER OF ROWS; row++) {
+        energyArray[row] = malloc(sizeof(double) * num_cols);
+    }
+
+    // compute energy map and store in engery_array
+    find_energy_map(image_pixel_array, energy_array, num_rows, num_cols);
+
+
+
+    return 0;
+}
+
 
 // this function parses the ppm file and put all the pixels RGB values in a 
 //  2D matrix. returns the pointer to this 2D array; 
@@ -87,22 +115,47 @@ int build_matrix(void){
     return 0;
 }   
 
-
-int main(){
-    // char *file_path = "./images/tower.ppm";
-    build_matrix();
-    
-    return 0;
-}
-
 // // this function parses the ppm file and put all the pixels RGB values in a 
 // //  2D matrix
 // int build_matrix(FIL){
 //     return 0;
 // }   
 
+double pixel_difference(pixel_t* pU, pixel_t* pD, pixel_t* pL, pixel_t* pR) {
+    // find partial derivatives for x
+    int dxR = abs(pR.R - pL.R);
+    int dxG = abs(pR.G - pL.G);
+    int dxB = abs(pR.B - pL.B);
+    int dx = (dxR + dxG + dxB) / 2;
 
-// // takes in an image, and return an energy map calculated by gradient magnitude
-// int find_energy_map(){
+    // find partial derivatives for y
+    int dyR = abs(pD.R - pU.R);
+    int dyG = abs(pD.G - pU.G);
+    int dyB = abs(pD.B - pU.B);
+    int dy = (dyR + dyG + dyB) / 2;
 
-// }
+    // return magnitude
+    return sqrt((dx * dx) + (dy * dy));
+
+}
+
+// takes in an image, and return an energy map calculated by gradient magnitude
+void find_energy_map(pixel_t*** image_pixel_array, double** energy_array, num_rows, num_cols) {
+    int i;
+    for (i = 0; i < num_rows; i++) {
+        int j;
+        for (j = 0; j < num_cols; j++) {
+            // don't want to remove the edges
+            if (i == 0 || j == 0 ||
+                i == num_rows - 1 || j == num_cols - 1) {
+                energy_array[i][j] = MAX_ENERGY;
+            } else {
+                energy_array[i][j] = pixel_difference(image_pixel_array[i-1][j],
+                                                     image_pixel_array[i+1][j],
+                                                     image_pixel_array[i][j-1],
+                                                     image_pixel_array[i][j+1]);
+            }
+        }
+    }
+}
+
