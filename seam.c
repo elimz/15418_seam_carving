@@ -22,14 +22,14 @@ int main(){
     build_matrix();
 
     // alloc mem for energy array
-    double** energy_array = malloc(sizeof(double*) * num_rows);
+    double** E = malloc(sizeof(double*) * num_rows);
     int row;
     for (row = 0; row < NUMBER OF ROWS; row++) {
-        energyArray[row] = malloc(sizeof(double) * num_cols);
+        E[row] = malloc(sizeof(double) * num_cols);
     }
 
     // compute energy map and store in engery_array
-    find_energy_map(image_pixel_array, energy_array, num_rows, num_cols);
+    find_energy_map(image_pixel_array, E, num_rows, num_cols);
 
 
 
@@ -122,25 +122,25 @@ int build_matrix(void){
 // }   
 
 double pixel_difference(pixel_t* pU, pixel_t* pD, pixel_t* pL, pixel_t* pR) {
-    // find partial derivatives for x
-    int dxR = abs(pR.R - pL.R);
-    int dxG = abs(pR.G - pL.G);
-    int dxB = abs(pR.B - pL.B);
-    int dx = (dxR + dxG + dxB) / 2;
+    // find pixel difference for x
+    int dxR = (pR.R - pL.R);
+    int dxG = (pR.G - pL.G);
+    int dxB = (pR.B - pL.B);
+    int deltx2 = (dxR*dxR + dxG*dxG + dxB*dxB);
 
-    // find partial derivatives for y
-    int dyR = abs(pD.R - pU.R);
-    int dyG = abs(pD.G - pU.G);
-    int dyB = abs(pD.B - pU.B);
-    int dy = (dyR + dyG + dyB) / 2;
+    // find pixel difference for y
+    int dyR = (pD.R - pU.R);
+    int dyG = (pD.G - pU.G);
+    int dyB = (pD.B - pU.B);
+    int delty2 = (dyR*dyR + dyG*dyG + dyB*dyB);
 
-    // return magnitude
-    return sqrt((dx * dx) + (dy * dy));
+    // return magnitude for dual-gradient
+    return sqrt(deltx2 + delty2);
 
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
-void find_energy_map(pixel_t*** image_pixel_array, double** energy_array, num_rows, num_cols) {
+void compute_E(pixel_t*** image_pixel_array, double** E, int num_rows, int num_cols) {
     int i;
     for (i = 0; i < num_rows; i++) {
         int j;
@@ -148,14 +148,68 @@ void find_energy_map(pixel_t*** image_pixel_array, double** energy_array, num_ro
             // don't want to remove the edges
             if (i == 0 || j == 0 ||
                 i == num_rows - 1 || j == num_cols - 1) {
-                energy_array[i][j] = MAX_ENERGY;
+                E[i][j] = MAX_ENERGY;
             } else {
-                energy_array[i][j] = pixel_difference(image_pixel_array[i-1][j],
+                E[i][j] = pixel_difference(image_pixel_array[i-1][j],
                                                      image_pixel_array[i+1][j],
                                                      image_pixel_array[i][j-1],
                                                      image_pixel_array[i][j+1]);
             }
         }
+    }
+}
+
+// M(i, j) = E(i, j) + min(M(i - 1, j - 1), M(i - 1, j), M(i - 1, j + 1))
+void compute_M(double** E, double** M, int num_rows, int num_cols) {
+    int i;
+    for (i = 0; i < num_rows; i++) {
+        int j;
+        for (j = 0; j < num_cols; j++) {
+            int middle = E[i][j];
+            
+            int left;
+            int right;
+            if (j - 1 < 0) {
+                left = MAX_ENERGY;
+            } else {
+                left = E[i][j-1];
+            }
+
+            if (j + 1 >= num_rows) {
+                right = MAX_ENERGY;
+            } else {
+                right = E[i][j+1];;
+            }
+
+            M[i+1][j] = M[i+1][j] + fmin(left, fmin(middle, right));
+        }
+    }
+}
+
+void find_seam(double** M, int num_rows, int num_cols, int* seam_path) {
+    // find the min seam cost col in the last row
+    double* last_row = M[num_rows - 1];
+
+    int j;
+    int min_cost_col = 0;
+    int min_cost = last_row[0];
+    for (j = 1; j < num_cols; j++) {
+        int current_cost = last_row[j];
+        if (current < min) {
+            min_cost = current_cost;
+            min_cost_col = j;
+        } 
+    }
+
+    int i;
+    seam_path[num_rows - 1] = min_cost_col;
+    for (i = num_rows - 2; i >= 0; i++) {
+        int prev_col = seam_path[i + 1];
+        int left = M[i][prev_col - 1];
+        int middle = M[i][prev_col];
+        int right = M[i][prev_col + 1];
+        
+        seam_path[i] = fmin(left, fmin(middle, right));
     }
 }
 
