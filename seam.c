@@ -11,12 +11,17 @@
 #define SEAM_H
 #endif
 
-#define MAX_ENERGY 550.0;
+#define MAX_ENERGY 550.0
+#define NUM_SEAMS_TO_REMOVE 1
 
 int main(){
     int row;
+
+
+    // build the image pixel array from reading the image file
     int num_rows, num_cols;
     pixel_t** image_pixel_array;
+
     // char *file_path = "./images/tower.ppm";
     // pass in pointers for image array pointer, width, height
     build_matrix(image_pixel_array, &num_rows, &num_cols);
@@ -39,21 +44,49 @@ int main(){
 
 
 
-    // compute energy map and store in engery_array
-    compute_E(image_pixel_array, E, num_rows, num_cols);
+    // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
+    int seam_num;
+    for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
+        // compute energy map and store in engery_array
+        compute_E(image_pixel_array, E, num_rows, num_cols);
 
-    // compute M from E
-    compute_M(E, M, num_rows, num_cols);
+        // compute M from E
+        compute_M(E, M, num_rows, num_cols);
 
-    // find seam to remove
-    find_seam(M, seam_path, num_rows, num_cols);
+        // find seam to remove
+        find_seam(M, seam_path, num_rows, num_cols);
 
-    // color the seam and output the image
-    color_seam(image_pixel_array, seam_path, num_rows, num_cols);
+        // color the seam and output the image
+        color_seam(image_pixel_array, seam_path, num_rows, num_cols);
 
-    // remove the seam from the image, also sets new values for num_rows and num_cols
-    remove_seam(image_pixel_array, seam_path, &num_rows, &num_cols);
+        // remove the seam from the image, also sets new values for num_rows and num_cols
+        remove_seam(image_pixel_array, seam_path, &num_rows, &num_cols);
+    }
 
+
+
+    // output the image
+        // TODO
+
+
+
+    // free data structures 
+    for (row = 0; row < num_rows; row++) {
+        free(E[row]);
+    }
+
+    for (row = 0; row < num_rows; row++) {
+        free(M[row]);
+    }
+
+    for (row = 0; row < num_rows; row++) {
+        free(image_pixel_array[row]);
+    }
+
+    free(E);
+    free(M);
+    free(seam_path);
+    free(image_pixel_array);
 
     return 0;
 }
@@ -225,6 +258,7 @@ void compute_M(double** E, double** M, int num_rows, int num_cols) {
     }
 }
 
+// finds the seam from M
 void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
     // find the min seam cost col in the last row
     double* last_row = M[num_rows - 1];
@@ -272,6 +306,7 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
     }
 }
 
+// colors the seam pixels red and outputs the image
 void color_seam(pixel_t** image_pixel_array, int* seam_path, int num_rows, int num_cols) {
     int i;
     for (i = 0; i < num_rows; i++) {
@@ -283,6 +318,7 @@ void color_seam(pixel_t** image_pixel_array, int* seam_path, int num_rows, int n
     // call function to output image
 }
 
+// remove the seam from the image pixel array and get new dimensions
 void remove_seam(pixel_t** image_pixel_array, int* seam_path, int* rows, int* cols) {
     int num_rows = *rows;
     int num_cols = *cols;
