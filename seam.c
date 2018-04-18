@@ -14,26 +14,26 @@
 #define MAX_ENERGY 550.0;
 
 int main(){
-    int num_rows, num_cols;
-    pixel_t*** image_pixel_array;
+    int num_rows, num_cols, max_px_val;
+    pixel_t** image_pixel_array;
+    // TODO: pass in file paths into all the functions 
     // char *file_path = "./images/tower.ppm";
     // pass in pointers for image array pointer, width, height
-    build_matrix(&num_rows, &num_cols);
-    printf("rows = %d, cols = %d\n", num_rows, num_cols);
+    build_matrix(&num_rows, &num_cols, &max_px_val, &image_pixel_array);
 
     // alloc mem for energy array
     double** energy_array = malloc(sizeof(double*) * num_rows);
     int row;
-    // for (row = 0; row < NUMBER OF ROWS; row++) {
     for (row = 0; row < num_rows; row++) {
         energy_array[row] = malloc(sizeof(double) * num_cols);
     }
-
     // compute energy map and store in engery_array
     find_energy_map(image_pixel_array, energy_array, num_rows, num_cols);
 
-
-
+    // output image;        TODO: change file name to match file input name
+    char* out_file_name = "tower_out.ppm";
+    output_image(image_pixel_array, out_file_name, num_rows, num_cols, max_px_val);
+    printf("Finished - Image Processing Finished! \n");
     return 0;
 }
 
@@ -41,17 +41,16 @@ int main(){
 // this function parses the ppm file and put all the pixels RGB values in a 
 //  2D matrix. returns the pointer to this 2D array; 
 // int build_matrix(char *file_path){
-int build_matrix(int *rows, int *cols){
+int build_matrix(int *rows, int *cols, int *max_px, pixel_t ***mx){
 
     FILE *ppm_file = fopen("./images/tower.ppm", "r");
     if (ppm_file == NULL) {
         printf("Error: failed to open file!\n");
         fclose(ppm_file);
-        return 1;
+        exit(1);
     }
 
-    printf("entering function build_matrix\n");
-    int bufsize = 100;
+    int bufsize = 1500;
     char buf[bufsize]; 
     int max_px_val;
     int num_rows, num_cols; 
@@ -62,7 +61,6 @@ int build_matrix(int *rows, int *cols){
     if (fgets(buf, bufsize, ppm_file) != NULL){
         // take in image height and width
         sscanf(buf, "%d %d\n", &num_cols, &num_rows);
-        printf("image width = %d, height = %d\n", num_cols, num_rows);
     }
 
     // pass this global value to other functions;
@@ -73,8 +71,14 @@ int build_matrix(int *rows, int *cols){
     if (fgets(buf, bufsize, ppm_file) != NULL){
         // take in image height and num_cols
         sscanf(buf, "%d\n", &max_px_val);
-        printf("max_px_val = %d\n", max_px_val);
+        // printf("max_px_val = %d\n", max_px_val);
     }
+    *max_px = max_px_val;
+
+
+    printf("Reading in image with size (%d, %d), max pixel value = %d\n", \
+        num_cols, num_rows, max_px_val);
+
 
     // now parse all the rgb info into a matrix;
     // image is represented by a list of structs, each struct has R, G, B field 
@@ -86,18 +90,30 @@ int build_matrix(int *rows, int *cols){
 
     // allocate a 2D array ;
     pixel_t **matrix = (pixel_t **) malloc(sizeof(pixel_t *) * num_rows);
+    if (matrix == NULL){
+        printf("ERROR: Malloc failed- matrix\n");
+        exit(1);
+    }
     int i;
     for (i = 0; i < num_rows; i ++){
         matrix[i] = (pixel_t *)malloc(sizeof(pixel_t) * num_cols);
+        if (matrix[i] == NULL){
+            printf("ERROR: Malloc failed - matrix[i]\n");
+            exit(1);
+        }
     }
 
     int curr_row, curr_col; 
     int pixel_count = 0;
-    while (fgets(buf, 1500 , ppm_file) != NULL){
 
-        // printf("buf = %s\n", buf);
+    while (fgets(buf, bufsize ,ppm_file) != NULL){
+        if(pixel_count == image_size){
+            printf("ERROR: getting more pixels than image_size. pixel_count = %d, image_size =%d\n", \
+                pixel_count, image_size);
+        }
         char *buf_ptr = buf;
-        int R, G, B, offset; 
+        int R, G, B;
+        int offset; 
 
         // each line contains 8 groups of RGB pixel values; reading them 3 at a 
         //  time, and store them to RGB fields;
@@ -116,20 +132,11 @@ int build_matrix(int *rows, int *cols){
             pixel_count ++;
         }
     }
-    printf("done\n");
+    printf("Finished - convert input image into matrix\n");
 
-    // test: see if eveyrthing's written to matrix correctly;
-    // int  j; 
-    // for (i = 0; i < 5;  i ++){
-    //     for (j= 0; j < num_cols; j ++){
-    //         pixel_t cp = matrix[i][j];
-    //         printf("matrix[%d][%d] = (%d, %d, %d)\n", i, j, cp.R, cp.G, cp.B);
-    //     }
-    // } 
-
-
+    // allowing other funcitons to access matrix: 
+    *mx = matrix;
     fclose(ppm_file);
-    // return matrix;
     return 0;
 }   
 
@@ -149,6 +156,41 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     // return magnitude
     return sqrt((dx * dx) + (dy * dy));
 
+}
+
+void output_image(pixel_t** matrix, char* output_file,  int num_rows, int num_cols, int max_px_val){
+
+    FILE *fp = fopen(output_file, "wb");
+    if (fp == NULL) {
+        printf("Error: failed to open file! file - %s\n", output_file);
+        fclose(fp);
+        exit(1);
+    }
+
+    // write file header first; 
+    fprintf(fp, "P3\n%d %d\n%d\n", num_cols, num_rows, max_px_val);
+
+    // write the rest of data;
+    int row, col;
+    pixel_t curr_pixel;
+    for (row = 0; row < num_rows; row ++){
+        // write each row as a row in the ppm file as well;
+        for (col = 0; col < num_cols; col ++) {
+            // unpack matrix values and write to file; 
+            curr_pixel = matrix[row][col];
+
+            if (col > 0){
+                fprintf(fp, " ");   // appending space to later items
+            }
+
+            fprintf(fp, "%d %d %d", curr_pixel.R, curr_pixel.G, curr_pixel.B);
+            // last item appends a new line at the end;
+            if (col == num_cols - 1){
+                fprintf(fp, "\n");
+            }
+        }
+    }
+    printf("Finished - writing image to output.\n");
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude

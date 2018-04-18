@@ -11,3 +11,4 @@ seam: $(CFILES) $(HFILES)
 	$(CC) $(CFLAGS) -o seam $(CFILES) $(LDFLAGS)
 clean:
 	rm seam
+	rm tower_out.ppm
