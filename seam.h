@@ -15,4 +15,5 @@ void compute_E(pixel_t** imagePixelArray, double** E, int num_rows, int num_cols
 void compute_M(double** E, double** M, int num_rows, int num_cols);
 void find_seam(double** E, int* seam_path, int num_rows, int num_cols);
 void color_seam(pixel_t** imagePixelArray, int* seam_path, int num_rows, int num_cols);
+void remove_seam(pixel_t** image_pixel_array, int* seam_path, int* rows, int* cols);
 

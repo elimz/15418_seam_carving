@@ -48,6 +48,12 @@ int main(){
     // find seam to remove
     find_seam(M, seam_path, num_rows, num_cols);
 
+    // color the seam and output the image
+    color_seam(image_pixel_array, seam_path, num_rows, num_cols);
+
+    // remove the seam from the image, also sets new values for num_rows and num_cols
+    remove_seam(image_pixel_array, seam_path, &num_rows, &num_cols);
+
 
     return 0;
 }
@@ -234,6 +240,7 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
         } 
     }
 
+    // go up from the bottom and find the small cost path
     int i;
     seam_path[num_rows - 1] = min_cost_col;
     for (i = num_rows - 2; i >= 0; i++) {
@@ -276,6 +283,20 @@ void color_seam(pixel_t** image_pixel_array, int* seam_path, int num_rows, int n
     // call function to output image
 }
 
-void remove_seam(pixel_t** image_pixel_array, int* seam_path) {
+void remove_seam(pixel_t** image_pixel_array, int* seam_path, int* rows, int* cols) {
+    int num_rows = *rows;
+    int num_cols = *cols;
 
+    // need to shift every pixel after the seam over to the "left"
+    int i;
+    for (i = 0; i < num_rows; i++) {
+        int j;
+        int seam_col = seam_path[i];
+        // seam col guaranteed to be at least 0
+        for (j = seam_col + 1; j < num_cols; j++) {
+            image_pixel_array[i][j - 1] = image_pixel_array[i][j];
+        }
+    }
+
+    *cols = num_cols - 1;
 }
