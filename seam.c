@@ -45,7 +45,7 @@ int main(){
         // compute energy map and store in engery_array
         compute_E(image_pixel_array, E, num_rows, num_cols);
 
-        // TODO This function causes seg fault
+        //b TODO This function causes seg fault
         // // compute M from E
         // compute_M(E, M, num_rows, num_cols);
         // printf("here? 53  \n");
@@ -76,13 +76,11 @@ int main(){
     for (row = 0; row < num_rows; row++) {
         free(image_pixel_array[row]);
     }
-    printf("here? freeing problem \n");
 
     free(E);
     free(M);
     free(seam_path);
     free(image_pixel_array);
-    printf("here? MORE freeing problem \n");
     printf("Finished - Image Processing Finished! \n");
     return 0;
 }
