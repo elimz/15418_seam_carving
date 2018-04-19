@@ -4,6 +4,12 @@
 // 1. command line, convert jpg/png format into ppm; 
 //  "convert source.png -compress none dest.ppm" // require imageMagick
 
+
+// TODO next: 
+// - measure timing; 
+// - use valgrind to measaure memory allocated, before and after changing to a 
+//  1D array; 
+// - handle image input and output naming inside main function
 #include <math.h>
 
 #ifndef SEAM_H
@@ -88,24 +94,28 @@ int main(){
 }  
 
 double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
-    // find pixel difference for x
+    // find partial derivative for x
     int dxR = abs(pR.R - pL.R);
     int dxG = abs(pR.G - pL.G);
     int dxB = abs(pR.B - pL.B);
     double deltx2 = (dxR + dxG + dxB) / 2.0;
 
-    // find pixel difference for y
+    // find partial derivative for y
     int dyR = abs(pD.R - pU.R);
     int dyG = abs(pD.G - pU.G);
     int dyB = abs(pD.B - pU.B);
-    double delty2 = (dyR* + dyG + dyB) / 2.0;
+    double delty2 = (dyR + dyG + dyB) / 2.0;
 
-    // return magnitude for dual-gradient
+    // return magnitude for gradient magnitude
     return sqrt(deltx2 + delty2);
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
 void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_cols) {
+    // debug: 
+    int max_pix_val = 0; 
+    int min_pix_val = 0;
+
     int i;
     for (i = 0; i < num_rows; i++) {
         int j;
@@ -119,16 +129,18 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
                                        image_pixel_array[i][j],
                                        image_pixel_array[i][j + 1]);
             }
+            // debug 
+            if (E[i][j] > max_pix_val){
+                max_pix_val = E[i][j];    
+            } if (E[i][j] < min_pix_val){
+                min_pix_val = E[i][j]; 
+            } 
         }
     }
 
-    // for (i = 0; i < num_rows; i++) {
-    //     int j;
-    //     for (j = 0; j < num_cols; j++) {
-    //         printf("%.2f, ", E[i][j]);
-    //     }
-    //     printf("\n");
-    // }
+    // // debug: print out gradient file;
+    // char* output_file = "gradient.ppm";
+    // intermediary_img(E, output_file,  num_rows, num_cols, max_pix_val, min_pix_val);
 }
 
 // M(i, j) = E(i, j) + min(M(i - 1, j - 1), M(i - 1, j), M(i - 1, j + 1))
@@ -407,4 +419,55 @@ void output_image(pixel_t** matrix, char* output_file,  int num_rows, int num_co
         }
     }
     printf("Finished - writing image to output.\n");
+}
+
+void intermediary_img(double ** matrix, char* output_file,  \
+    int num_rows, int num_cols, int max_px_val, int min_px_val){
+
+    FILE *fp = fopen(output_file, "wb");
+    if (fp == NULL) {
+        printf("Error: failed to open file! file - %s\n", output_file);
+        fclose(fp);
+        exit(1);
+    }
+
+    // write file header first; 
+    fprintf(fp, "P3\n%d %d\n%d\n", num_cols, num_rows, max_px_val);
+
+    // write the rest of data;
+    int row, col;
+    double curr_value;
+    for (row = 0; row < num_rows; row ++){
+        // write each row as a row in the ppm file as well;
+        for (col = 0; col < num_cols; col ++) {
+            // // unpack matrix values and write to file; 
+            curr_value = matrix[row][col];
+
+            // scale up so it's bright enough to see; 
+            int rand_offset = 1000;
+            // convert to a scale of 0 to 255
+            curr_value = (curr_value + rand_offset)* 255  / (max_px_val - min_px_val) ;
+
+
+            // cast to int in order to display
+            int int_curr_value = (int)curr_value;
+            if (int_curr_value <  0 ){
+                int_curr_value = 0;
+            }
+
+
+            if (col > 0){
+                fprintf(fp, " ");   // appending space to later items
+            }
+
+            fprintf(fp, "%d %d %d", int_curr_value, int_curr_value, int_curr_value);
+            // fprintf(fp, "%d", int_curr_value);
+            // last item appends a new line at the end;
+            if (col == num_cols - 1){
+                fprintf(fp, "\n");
+            }
+            // printf("%lf\n", curr_value);
+        }
+    }
+    printf("Finished - writing intermediary image to output.\n");
 }

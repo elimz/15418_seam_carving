@@ -18,3 +18,7 @@ void compute_M(double** E, double** M, int num_rows, int num_cols);
 void find_seam(double** E, int* seam_path, int num_rows, int num_cols);
 void color_seam(pixel_t*** imagePixelArray, double** M, int* seam_path, int num_rows, int num_cols, int max_px_val);
 void remove_seam(pixel_t*** image_pixel_array, int* seam_path, int* rows, int* cols);
+
+// debug / visualization functions
+void intermediary_img(double ** matrix, char* output_file,  \
+    int num_rows, int num_cols, int max_px_val, int min_px_val);
