@@ -38,15 +38,6 @@ int main(){
     // alloc mem for seam_path array
     int* seam_path = malloc(sizeof(int) * num_rows);
 
-    // pixel_t** image_pixel_array_original = malloc(sizeof(pixel_t*) * num_rows);
-    // for (row = 0; row < num_rows; row++) {
-    //     image_pixel_array_original[row] = malloc(sizeof(pixel_t) * num_cols);
-    //     int col;
-    //     for (col = 0; col < num_cols; col++) {
-    //         image_pixel_array_original[row][col] = image_pixel_array[row][col];
-    //     }
-    // }
-
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     int seam_num;
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
@@ -84,14 +75,14 @@ int main(){
         free(M[row]);
     }
 
-    // for (row = 0; row < num_rows; row++) {
-    //     free(image_pixel_array[row]);
-    // }
+    for (row = 0; row < num_rows; row++) {
+        free(image_pixel_array[row]);
+    }
 
     free(E);
     free(M);
     free(seam_path);
-    // free(image_pixel_array);
+    free(image_pixel_array);
     printf("Finished - Image Processing Finished! \n");
     return 0;
 }  
@@ -195,8 +186,6 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
             min_cost_col = j;
         } 
     }
-
-    // printf("min_cost_col: %d\n", min_cost_col);
     M[num_rows - 1][min_cost_col] = MAX_ENERGY_SUM;
 
     // go up from the bottom and find the small cost path
