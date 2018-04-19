@@ -11,8 +11,8 @@
 #define SEAM_H
 #endif
 
-#define MAX_ENERGY 650
-#define NUM_SEAMS_TO_REMOVE 20
+#define MAX_ENERGY 9999999
+#define NUM_SEAMS_TO_REMOVE 300
 
 int main(){
 
@@ -72,7 +72,7 @@ int main(){
     }
 
     // output image;        TODO: change file name to match file input name
-    char* out_file_name = "hotdog_out.ppm";
+    char* out_file_name = "tower_out.ppm";
     output_image(image_pixel_array, out_file_name, num_rows, num_cols, max_px_val);
     
     // free data structures 
@@ -98,16 +98,16 @@ int main(){
 
 double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     // find pixel difference for x
-    int dxR = (pR.R - pL.R);
-    int dxG = (pR.G - pL.G);
-    int dxB = (pR.B - pL.B);
-    double deltx2 = (dxR*dxR + dxG*dxG + dxB*dxB);
+    int dxR = abs(pR.R - pL.R);
+    int dxG = abs(pR.G - pL.G);
+    int dxB = abs(pR.B - pL.B);
+    double deltx2 = (dxR + dxG + dxB) / 2.0;
 
     // find pixel difference for y
-    int dyR = (pD.R - pU.R);
-    int dyG = (pD.G - pU.G);
-    int dyB = (pD.B - pU.B);
-    double delty2 = (dyR*dyR + dyG*dyG + dyB*dyB);
+    int dyR = abs(pD.R - pU.R);
+    int dyG = abs(pD.G - pU.G);
+    int dyB = abs(pD.B - pU.B);
+    double delty2 = (dyR* + dyG + dyB) / 2.0;
 
     // return magnitude for dual-gradient
     return sqrt(deltx2 + delty2);
@@ -120,31 +120,14 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
         int j;
         for (j = 0; j < num_cols; j++) {
             // don't want to remove the edges
-            int up = i - 1;
-            int down = i + 1;
-            int left = j - 1;
-            int right = j+ 1;
-
-            if (up < 0) {
-                up = num_rows - 1;
+            if (i == num_rows - 1 || j == num_cols - 1) {
+                E[i][j] = MAX_ENERGY;
+            } else {
+                 E[i][j] = pixel_difference(image_pixel_array[i][j],
+                                       image_pixel_array[i + 1][j],
+                                       image_pixel_array[i][j],
+                                       image_pixel_array[i][j + 1]);
             }
-
-            if (down >= num_rows) {
-                down = 0;
-            }
-
-            if (left < 0) {
-                left = num_cols - 1;
-            }
-
-            if (right >= num_cols) {
-                right = 0;
-            }
-
-            E[i][j] = pixel_difference(image_pixel_array[up][j],
-                                       image_pixel_array[down][j],
-                                       image_pixel_array[i][left],
-                                       image_pixel_array[i][right]);
         }
     }
 
@@ -160,27 +143,24 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
 // M(i, j) = E(i, j) + min(M(i - 1, j - 1), M(i - 1, j), M(i - 1, j + 1))
 void compute_M(double** E, double** M, int num_rows, int num_cols) {
     int i;
+    memcpy(M[0], E[0], sizeof(double) * num_cols);
     for (i = 0; i < num_rows; i++) {
         int j;
         for (j = 0; j < num_cols; j++) {
-            double middle = E[i][j];
+            double middle = M[i][j];
             
             double left;
             double right;
             if (j - 1 < 0) {
                 left = MAX_ENERGY;
             } else {
-                left = E[i][j - 1];
+                left = M[i][j - 1];
             }
 
             if (j + 1 >= num_cols) {
                 right = MAX_ENERGY;
             } else {
-                right = E[i][j + 1];
-            }
-
-            if (i == 0) {
-                M[i][j] = E[i][j];
+                right = M[i][j + 1];
             }
 
             if (i < num_rows - 1){
@@ -268,8 +248,8 @@ void color_seam(pixel_t*** image_pixel_array, double** M, int* seam_path, int nu
         (*image_pixel_array)[i][seam_path[i]].B = 0;
     }
 
-    // int num_seams;
-    // for (num_seams = 0; num_seams < 100; num_seams++) {
+    // int x;
+    // for (x = 0; x < 300; x++) {
     //     find_seam(M, seam_path, num_rows, num_cols);
     //     for (i = 0; i < num_rows; i++) {
     //         (*image_pixel_array)[i][seam_path[i]].R = 255;
@@ -279,7 +259,7 @@ void color_seam(pixel_t*** image_pixel_array, double** M, int* seam_path, int nu
     // }
 
     // call function to output image
-    char* out_file_name = "hotdog_out_seam.ppm";
+    char* out_file_name = "tower_out_seam.ppm";
     output_image(*image_pixel_array, out_file_name, num_rows, num_cols, max_px_val);
 }
 
@@ -309,7 +289,7 @@ void remove_seam(pixel_t*** image_pixel_array_pt, int* seam_path, int* rows, int
 // this function parses the ppm file and put all the pixels RGB values in a 
 //  2D matrix. returns the pointer to this 2D array; 
 pixel_t** build_matrix(int *rows, int *cols, int *max_px){
-    FILE *ppm_file = fopen("./images/hotdog.ppm", "r");
+    FILE *ppm_file = fopen("./images/tower.ppm", "r");
     if (ppm_file == NULL) {
         printf("Error: failed to open file!\n");
         fclose(ppm_file);
