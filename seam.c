@@ -4,6 +4,12 @@
 // 1. command line, convert jpg/png format into ppm; 
 //  "convert source.png -compress none dest.ppm" // require imageMagick
 
+
+// TODO next: 
+// - measure timing; 
+// - use valgrind to measaure memory allocated, before and after changing to a 
+//  1D array; 
+// - handle image input and output naming inside main function
 #include <math.h>
 
 #ifndef SEAM_H
@@ -11,8 +17,8 @@
 #define SEAM_H
 #endif
 
-#define MAX_ENERGY 550.0
-#define NUM_SEAMS_TO_REMOVE 1
+#define MAX_ENERGY 9999999
+#define NUM_SEAMS_TO_REMOVE 300
 
 int main(){
 
@@ -38,7 +44,14 @@ int main(){
     // alloc mem for seam_path array
     int* seam_path = malloc(sizeof(int) * num_rows);
 
-    // pixel_t** image_pixel_array_original = malloc(sizeof(*))
+    // pixel_t** image_pixel_array_original = malloc(sizeof(pixel_t*) * num_rows);
+    // for (row = 0; row < num_rows; row++) {
+    //     image_pixel_array_original[row] = malloc(sizeof(pixel_t) * num_cols);
+    //     int col;
+    //     for (col = 0; col < num_cols; col++) {
+    //         image_pixel_array_original[row][col] = image_pixel_array[row][col];
+    //     }
+    // }
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     int seam_num;
@@ -56,7 +69,7 @@ int main(){
         printf("Finished finding seam\n");
 
         // color the seam and output the image
-        color_seam(&image_pixel_array, seam_path, num_rows, num_cols, max_px_val);
+        color_seam(&image_pixel_array, M, seam_path, num_rows, num_cols, max_px_val);
         printf("Finished coloring seam\n");
 
         // remove the seam from the image, also sets new values for num_rows and num_cols
@@ -91,20 +104,19 @@ int main(){
 
 double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     // find pixel difference for x
-    int dxR = (pR.R - pL.R);
-    int dxG = (pR.G - pL.G);
-    int dxB = (pR.B - pL.B);
+    int dxR = abs(pR.R - pL.R);
+    int dxG = abs(pR.G - pL.G);
+    int dxB = abs(pR.B - pL.B);
     double deltx2 = (dxR + dxG + dxB) / 2.0;
 
     // find pixel difference for y
-    int dyR = (pD.R - pU.R);
-    int dyG = (pD.G - pU.G);
-    int dyB = (pD.B - pU.B);
-    double delty2 = (dyR + dyG + dyB) / 2.0;
+    int dyR = abs(pD.R - pU.R);
+    int dyG = abs(pD.G - pU.G);
+    int dyB = abs(pD.B - pU.B);
+    double delty2 = (dyR* + dyG + dyB) / 2.0;
 
     // return magnitude for dual-gradient
-    return deltx2 + delty2;
-
+    return sqrt(deltx2 + delty2);
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
@@ -118,14 +130,13 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
         int j;
         for (j = 0; j < num_cols; j++) {
             // don't want to remove the edges
-            if (i == 0 || j == 0 ||
-                i == num_rows - 1 || j == num_cols - 1) {
+            if (i == num_rows - 1 || j == num_cols - 1) {
                 E[i][j] = MAX_ENERGY;
             } else {
-                E[i][j] = pixel_difference(image_pixel_array[i-1][j],
-                                           image_pixel_array[i+1][j],
-                                           image_pixel_array[i][j-1],
-                                           image_pixel_array[i][j+1]);
+                 E[i][j] = pixel_difference(image_pixel_array[i][j],
+                                       image_pixel_array[i + 1][j],
+                                       image_pixel_array[i][j],
+                                       image_pixel_array[i][j + 1]);
             }
             // debug 
             if (E[i][j] > max_pix_val){
@@ -136,47 +147,36 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
         }
     }
 
-    // debug: print out gradient file;
-    char* output_file = "gradient.ppm";
-    intermediary_img(E, output_file,  num_rows, num_cols, max_pix_val, min_pix_val);
-
-    // for (i = 0; i < num_rows; i++) {
-    //     int j;
-    //     for (j = 0; j < num_cols; j++) {
-    //         printf("%.2f, ", E[i][j]);
-    //     }
-    //     printf("\n");
-    // }
+    // // debug: print out gradient file;
+    // char* output_file = "gradient.ppm";
+    // intermediary_img(E, output_file,  num_rows, num_cols, max_pix_val, min_pix_val);
 }
 
 // M(i, j) = E(i, j) + min(M(i - 1, j - 1), M(i - 1, j), M(i - 1, j + 1))
 void compute_M(double** E, double** M, int num_rows, int num_cols) {
     int i;
+    memcpy(M[0], E[0], sizeof(double) * num_cols);
     for (i = 0; i < num_rows; i++) {
         int j;
         for (j = 0; j < num_cols; j++) {
-            double middle = E[i][j];
+            double middle = M[i][j];
             
             double left;
             double right;
             if (j - 1 < 0) {
                 left = MAX_ENERGY;
             } else {
-                left = E[i][j-1];
+                left = M[i][j - 1];
             }
 
             if (j + 1 >= num_cols) {
                 right = MAX_ENERGY;
             } else {
-                right = E[i][j+1];
-            }
-
-            if (i == 0) {
-                M[i][j] = E[i][j];
+                right = M[i][j + 1];
             }
 
             if (i < num_rows - 1){
-                M[i+1][j] = E[i+1][j] + fmin(left, fmin(middle, right));
+                M[i + 1][j] = E[i + 1][j] + fmin(middle, fmin(left, right));
             }
         }
     }
@@ -195,6 +195,7 @@ void compute_M(double** E, double** M, int num_rows, int num_cols) {
 void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
     // find the min seam cost col in the last row
     double* last_row = M[num_rows - 1];
+    double MAX_ENERGY_SUM = MAX_ENERGY*num_rows;
 
     int j;
     int min_cost_col = 0;
@@ -207,6 +208,9 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
         } 
     }
 
+    // printf("min_cost_col: %d\n", min_cost_col);
+    M[num_rows - 1][min_cost_col] = MAX_ENERGY_SUM;
+
     // go up from the bottom and find the small cost path
     int i;
     seam_path[num_rows - 1] = min_cost_col;
@@ -217,24 +221,28 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
         double left;
         double right;
         if (prev_col - 1 < 0) {
-            left = MAX_ENERGY*num_rows;
+            left = MAX_ENERGY_SUM;
         } else {
             left = M[i][prev_col - 1];
         }
         if (prev_col + 1 >= num_cols) {
-            right = MAX_ENERGY*num_rows;
+            right = MAX_ENERGY_SUM;
         } else {
             right = M[i][prev_col + 1];
         }
         double current_min_cost = fmin(left, fmin(middle, right));
 
+        // printf("left: %f, middle: %f, right: %f, prev_col: %d\n", left, middle, right, prev_col);
 
-        if (current_min_cost == left) {
-            seam_path[i] = prev_col - 1;
-        } else if (current_min_cost == middle) {
+        if (current_min_cost == middle) {
             seam_path[i] = prev_col;
+            M[i][prev_col] = MAX_ENERGY_SUM;
+        } else if (current_min_cost == left) {
+            seam_path[i] = prev_col - 1;
+            M[i][prev_col - 1] = MAX_ENERGY_SUM;
         } else {
             seam_path[i] = prev_col + 1;
+            M[i][prev_col + 1] = MAX_ENERGY_SUM;
         }
     }
 
@@ -244,13 +252,23 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
 }
 
 // colors the seam pixels red and outputs the image
-void color_seam(pixel_t*** image_pixel_array, int* seam_path, int num_rows, int num_cols, int max_px_val) {
+void color_seam(pixel_t*** image_pixel_array, double** M, int* seam_path, int num_rows, int num_cols, int max_px_val) {
     int i;
     for (i = 0; i < num_rows; i++) {
         (*image_pixel_array)[i][seam_path[i]].R = 255;
         (*image_pixel_array)[i][seam_path[i]].G = 0;
         (*image_pixel_array)[i][seam_path[i]].B = 0;
     }
+
+    // int x;
+    // for (x = 0; x < 300; x++) {
+    //     find_seam(M, seam_path, num_rows, num_cols);
+    //     for (i = 0; i < num_rows; i++) {
+    //         (*image_pixel_array)[i][seam_path[i]].R = 255;
+    //         (*image_pixel_array)[i][seam_path[i]].G = 0;
+    //         (*image_pixel_array)[i][seam_path[i]].B = 0;
+    //     }
+    // }
 
     // call function to output image
     char* out_file_name = "tower_out_seam.ppm";
