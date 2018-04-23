@@ -10,24 +10,23 @@
 // - use valgrind to measaure memory allocated, before and after changing to a 
 //  1D array; 
 // - handle image input and output naming inside main function
-#include <math.h>
-
-#ifndef SEAM_H
 #include "seam.h"
-#define SEAM_H
-#endif
 
 #define MAX_ENERGY 9999999
 #define NUM_SEAMS_TO_REMOVE 300
 
+char* input_file = "./images/tower.ppm";
+char* output_file = "tower_out.ppm";
+char* seam_file = "tower_out_seam.ppm";
+
 int main(){
 
-    int num_rows, num_cols, max_px_val;
+    int num_rows, num_cols, original_cols, max_px_val;
     // TODO: pass in file paths into all the functions 
     // char *file_path = "./images/tower.ppm";
     // pass in pointers for image array pointer, width, height
-    pixel_t** image_pixel_array = build_matrix(&num_rows, &num_cols, &max_px_val);
-
+    pixel_t** image_pixel_array = build_matrix(&num_rows, &num_cols, &max_px_val, input_file);
+    original_cols = num_cols;
     // alloc for E array
     int row; 
     double** E = malloc(sizeof(double*) * num_rows);
@@ -45,32 +44,36 @@ int main(){
     int* seam_path = malloc(sizeof(int) * num_rows);
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
+
     int seam_num;
+    double start = currentSeconds();
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
         // compute energy map and store in engery_array
         compute_E(image_pixel_array, E, num_rows, num_cols);
-        printf("Finished computing E\n");
+        // printf("Finished computing E\n");
 
         // compute M from E
         compute_M(E, M, num_rows, num_cols);
-        printf("Finished computing M\n");
+        // printf("Finished computing M\n");
 
         // find seam to remove
         find_seam(M, seam_path, num_rows, num_cols);
-        printf("Finished finding seam\n");
+        // printf("Finished finding seam\n");
 
-        // color the seam and output the image
-        color_seam(&image_pixel_array, M, seam_path, num_rows, num_cols, max_px_val);
-        printf("Finished coloring seam\n");
+        // // color the seam and output the image
+        // color_seam(&image_pixel_array, M, seam_path, num_rows, num_cols, max_px_val, seam_file);
+        // printf("Finished coloring seam\n");
 
         // remove the seam from the image, also sets new values for num_rows and num_cols
         remove_seam(&image_pixel_array, seam_path, &num_rows, &num_cols);
-        printf("Finished removing seam\n");
+        // printf("Finished removing seam\n");
     }
+    double delta = currentSeconds() - start;
+    printf("%d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
 
     // output image;        TODO: change file name to match file input name
-    char* out_file_name = "tower_out.ppm";
-    output_image(image_pixel_array, out_file_name, num_rows, num_cols, max_px_val);
+    // char* out_file_name = "tower_out.ppm";
+    output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
     
     // free data structures 
     for (row = 0; row < num_rows; row++) {
@@ -133,7 +136,7 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
             if (E[i][j] > max_pix_val){
                 max_pix_val = E[i][j];    
             } if (E[i][j] < min_pix_val){
-                min_pix_val = E[i][j]; 
+                min_pix_val = E[i][j];
             } 
         }
     }
@@ -241,7 +244,7 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
 }
 
 // colors the seam pixels red and outputs the image
-void color_seam(pixel_t*** image_pixel_array, double** M, int* seam_path, int num_rows, int num_cols, int max_px_val) {
+void color_seam(pixel_t*** image_pixel_array, double** M, int* seam_path, int num_rows, int num_cols, int max_px_val, char* seam_file) {
     int i;
     for (i = 0; i < num_rows; i++) {
         (*image_pixel_array)[i][seam_path[i]].R = 255;
@@ -260,8 +263,7 @@ void color_seam(pixel_t*** image_pixel_array, double** M, int* seam_path, int nu
     // }
 
     // call function to output image
-    char* out_file_name = "tower_out_seam.ppm";
-    output_image(*image_pixel_array, out_file_name, num_rows, num_cols, max_px_val);
+    output_image(*image_pixel_array, seam_file, num_rows, num_cols, max_px_val);
 }
 
 // remove the seam from the image pixel array and get new dimensions
@@ -289,8 +291,8 @@ void remove_seam(pixel_t*** image_pixel_array_pt, int* seam_path, int* rows, int
 
 // this function parses the ppm file and put all the pixels RGB values in a 
 //  2D matrix. returns the pointer to this 2D array; 
-pixel_t** build_matrix(int *rows, int *cols, int *max_px){
-    FILE *ppm_file = fopen("./images/tower.ppm", "r");
+pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
+    FILE *ppm_file = fopen(file, "r");
     if (ppm_file == NULL) {
         printf("Error: failed to open file!\n");
         fclose(ppm_file);
