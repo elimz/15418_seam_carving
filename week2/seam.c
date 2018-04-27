@@ -60,7 +60,8 @@ int main(){
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     #if TIMING
-    double t_malloc = currentSeconds();
+    double c_time_malloc = currentSeconds(); 
+    double t_malloc = c_time_malloc - t0;
     #endif
 
     int seam_num;
@@ -72,7 +73,7 @@ int main(){
     #define T_COMP_M        1
     #define T_FIND_SEAM     2
     #define T_REMOVE_SEAM   3
-    double start = currentSeconds();
+    double start = currentSeconds();        // after malloc
     #endif
 
     printf("++++++++ TEST, OMP = %d,\n", OMP);
@@ -83,12 +84,17 @@ int main(){
     // --------------------------------TODO: is this for loop necessary?; --------------------------------
     // --------------------------------TODO: is this for loop necessary?;  --------------------------------
 
+    double t_start_E, t_start_M, t_start_f_seam, t_start_rm_seam; 
+    double t_loop_start;
+
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
+        t_loop_start = currentSeconds();
         // compute energy map and store in engery_array
         compute_E(image_pixel_array, E, num_rows, num_cols);
         // printf("Finished computing E\n");
         #if TIMING
-        double t_compute_E = currentSeconds() - t_malloc;
+        t_start_E = currentSeconds();
+        double t_compute_E = t_start_E - t_loop_start;
         timing[T_COMP_E] += t_compute_E;
         #endif
 
@@ -96,7 +102,8 @@ int main(){
         compute_M(E, M, num_rows, num_cols);
         // printf("Finished computing M\n");
         #if TIMING
-        double t_compute_M = currentSeconds() - t_compute_E;
+        t_start_M = currentSeconds();
+        double t_compute_M = t_start_M - t_start_E;
         timing[T_COMP_M] += t_compute_M;
         #endif
         
@@ -104,7 +111,8 @@ int main(){
         find_seam(M, seam_path, num_rows, num_cols);
         // printf("Finished finding seam\n");
         #if TIMING
-        double t_find_seam = currentSeconds() - t_compute_M;
+        t_start_f_seam = currentSeconds();
+        double t_find_seam = t_start_f_seam - t_start_M;
         timing[T_FIND_SEAM] += t_find_seam;
         #endif
         
@@ -116,7 +124,8 @@ int main(){
         remove_seam(&image_pixel_array, seam_path, &num_rows, &num_cols);
         // printf("Finished removing seam\n");
         #if TIMING
-        double t_remove_seam = currentSeconds() - t_find_seam;
+        t_start_rm_seam = currentSeconds();
+        double t_remove_seam = t_start_rm_seam - t_start_f_seam;
         timing[T_REMOVE_SEAM] += t_remove_seam;
         #endif
     }
@@ -132,7 +141,7 @@ int main(){
 
     #if TIMING
     printf("------ TIMING SPLITS ------\n");
-    printf("    T_MALLOC = %f\n", t_malloc - t0);
+    printf("    T_MALLOC = %f\n", t_malloc);
     printf("    T_COMP_E = %f\n    T_COMP_M = %f\n    T_FIND_SEAM = %f\n    T_REMOVE_SEAM = %f\n", \
         timing[T_COMP_E], timing[T_COMP_M], timing[T_FIND_SEAM], timing[T_REMOVE_SEAM]);
     #endif
@@ -185,9 +194,7 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
     int min_pix_val = 0;
 
     int i;
-    #if OMP 
-        #pragma omp parallel for
-    #endif
+
     for (i = 0; i < num_rows; i++) {
         int j;
 
@@ -224,15 +231,12 @@ void compute_M(double** E, double** M, int num_rows, int num_cols) {
     int i;
     memcpy(M[0], E[0], sizeof(double) * num_cols);
 
-    #if OMP 
-        #pragma omp parallel for
-    #endif
     for (i = 0; i < num_rows; i++) {
         int j;
 
         #if OMP 
         #pragma omp parallel for
-    #endif
+        #endif
 
         for (j = 0; j < num_cols; j++) {
             double middle = M[i][j];
@@ -291,6 +295,9 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
     // go up from the bottom and find the small cost path
     int i;
     seam_path[num_rows - 1] = min_cost_col;
+    #if OMP 
+        #pragma omp parallel for
+    #endif
     for (i = num_rows - 2; i >= 0; i--) {
         int prev_col = seam_path[i + 1];
         double middle = M[i][prev_col];
@@ -511,7 +518,7 @@ void output_image(pixel_t** matrix, char* output_file,  int num_rows, int num_co
             }
         }
     }
-    printf("Finished - writing image to output.\n");
+    // printf("Finished - writing image to output.\n");
 }
 
 void intermediary_img(double ** matrix, char* output_file,  \
