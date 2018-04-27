@@ -12,6 +12,8 @@
 // - handle image input and output naming inside main function
 #include "seam.h"
 
+#define TIMING 1
+
 #define MAX_ENERGY 9999999
 #define NUM_SEAMS_TO_REMOVE 300
 
@@ -20,6 +22,8 @@ char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
 int main(){
+
+    double t0 = currentSeconds();
 
     int num_rows, num_cols, original_cols, max_px_val;
     // TODO: pass in file paths into all the functions 
@@ -44,22 +48,46 @@ int main(){
     int* seam_path = malloc(sizeof(int) * num_rows);
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
+    #if TIMING
+    double t_malloc = currentSeconds();
+    #endif
 
     int seam_num;
+    // timer array for different sections 
+    #if TIMING
+    double timing[4] = {0.0, 0.0, 0.0, 0.0 };
+    #define T_COMP_E        0
+    #define T_COMP_M        1
+    #define T_FIND_SEAM     2
+    #define T_REMOVE_SEAM   3
+    #endif
+
     double start = currentSeconds();
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
         // compute energy map and store in engery_array
         compute_E(image_pixel_array, E, num_rows, num_cols);
         // printf("Finished computing E\n");
+        #if TIMING
+        double t_compute_E = currentSeconds() - t_malloc;
+        timing[T_COMP_E] += t_compute_E;
+        #endif
 
         // compute M from E
         compute_M(E, M, num_rows, num_cols);
         // printf("Finished computing M\n");
-
+        #if TIMING
+        double t_compute_M = currentSeconds() - t_compute_E;
+        timing[T_COMP_M] += t_compute_M;
+        #endif
+        
         // find seam to remove
         find_seam(M, seam_path, num_rows, num_cols);
         // printf("Finished finding seam\n");
-
+        #if TIMING
+        double t_find_seam = currentSeconds() - t_compute_M;
+        timing[T_FIND_SEAM] += t_find_seam;
+        #endif
+        
         // // color the seam and output the image
         // color_seam(&image_pixel_array, M, seam_path, num_rows, num_cols, max_px_val, seam_file);
         // printf("Finished coloring seam\n");
@@ -67,10 +95,21 @@ int main(){
         // remove the seam from the image, also sets new values for num_rows and num_cols
         remove_seam(&image_pixel_array, seam_path, &num_rows, &num_cols);
         // printf("Finished removing seam\n");
+        #if TIMING
+        double t_remove_seam = currentSeconds() - t_find_seam;
+        timing[T_REMOVE_SEAM] += t_remove_seam;
+        #endif
     }
-    double delta = currentSeconds() - start;
-    printf("%d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
 
+    #if TIMING
+    double delta = currentSeconds() - start;
+    printf("------  TIMING ------ %d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
+    
+    printf("------ TIMING SPLITS ------\n");
+    printf("    T_MALLOC = %f\n", t_malloc - t0);
+    printf("    T_COMP_E = %f\n    T_COMP_M = %f\n    T_FIND_SEAM = %f\n    T_REMOVE_SEAM = %f\n", \
+        timing[T_COMP_E], timing[T_COMP_M], timing[T_FIND_SEAM], timing[T_REMOVE_SEAM]);
+    #endif
     // output image;        TODO: change file name to match file input name
     // char* out_file_name = "tower_out.ppm";
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
@@ -132,7 +171,7 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
                                        image_pixel_array[i][j],
                                        image_pixel_array[i][j + 1]);
             }
-            // debug 
+            // counter for max and min pixel value
             if (E[i][j] > max_pix_val){
                 max_pix_val = E[i][j];    
             } if (E[i][j] < min_pix_val){
@@ -140,7 +179,6 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
             } 
         }
     }
-
     // // debug: print out gradient file;
     // char* output_file = "gradient.ppm";
     // intermediary_img(E, output_file,  num_rows, num_cols, max_pix_val, min_pix_val);
