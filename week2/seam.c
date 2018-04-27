@@ -364,6 +364,9 @@ void remove_seam(pixel_t*** image_pixel_array_pt, int* seam_path, int* rows, int
     for (i = 0; i < num_rows; i++) {
         int j;
         int seam_col = seam_path[i];
+        #if OMP 
+            #pragma omp parallel for
+        #endif
         // seam col guaranteed to be at least 0
         for (j = seam_col + 1; j < num_cols; j++) {
             (*image_pixel_array_pt)[i][j - 1] = (*image_pixel_array_pt)[i][j];
