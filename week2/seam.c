@@ -13,7 +13,7 @@
 #include "seam.h"
 
 #define MAX_ENERGY 9999999.0
-#define NUM_SEAMS_TO_REMOVE 70
+#define NUM_SEAMS_TO_REMOVE 200
 
 char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
@@ -66,7 +66,7 @@ int main(){
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
-        printf("%d, ", ordered_indicies[seam_num]);
+        printf("%d \n", seam_num);
         seam_paths[seam_num][0] = ordered_indicies[seam_num];
         find_seam(E, seam_paths[seam_num], num_rows, num_cols);
         // printf("Finished finding seam\n");
@@ -184,20 +184,19 @@ void find_seam(double** E, int* seam_path, int num_rows, int num_cols) {
         }
 
         double current_min_cost = fmin(middle, fmin(left, right));
-
         if (current_min_cost == INT_MAX) {
-            printf("left: %f, middle: %f, right: %f, prev_col: %d\n", left, middle, right, prev_col);
-        }
-
-        if (current_min_cost == middle) {
-            seam_path[i] = prev_col;
-            E[i][prev_col] = INT_MAX;
-        } else if (current_min_cost == left) {
-            seam_path[i] = prev_col - 1;
-            E[i][prev_col - 1] = INT_MAX;
+            i = i - 2;
         } else {
-            seam_path[i] = prev_col + 1;
-            E[i][prev_col + 1] = INT_MAX;
+            if (current_min_cost == middle) {
+                seam_path[i] = prev_col;
+                E[i][prev_col] = INT_MAX;
+            } else if (current_min_cost == left) {
+                seam_path[i] = prev_col - 1;
+                E[i][prev_col - 1] = INT_MAX;
+            } else {
+                seam_path[i] = prev_col + 1;
+                E[i][prev_col + 1] = INT_MAX;
+            }
         }
     }
 
@@ -206,7 +205,7 @@ void find_seam(double** E, int* seam_path, int num_rows, int num_cols) {
     //         printf("seam index: %d with value %d\n", i, seam_path[i]);
     //     }
     // }
-    printf("\n\n");
+    // printf("\n\n");
 }
 
 // colors the seam pixels red and outputs the image
