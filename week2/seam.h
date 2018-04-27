@@ -3,7 +3,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+// #if OMP
+#include <omp.h>
+// #endif
+
 #include "cycletimer.h"
+
+
+#ifndef OMP
+#define OMP 0
+#endif
 
 typedef struct pixel {
     int R;

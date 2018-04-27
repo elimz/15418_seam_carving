@@ -20,11 +20,6 @@
 #define TIMING 1
 #endif
 
-#ifndef OMP
-#define OMP 0
-#endif
-
-
 #define MAX_ENERGY 9999999
 #define NUM_SEAMS_TO_REMOVE 300
 
@@ -32,9 +27,14 @@ char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
-int main(){
+// TODO: 
+int nthread = 8;
 
+int main(){
+    
+    #if TIMING
     double t0 = currentSeconds();
+    #endif
 
     int num_rows, num_cols, original_cols, max_px_val;
     // TODO: pass in file paths into all the functions 
@@ -64,6 +64,7 @@ int main(){
     #endif
 
     int seam_num;
+
     // timer array for different sections 
     #if TIMING
     double timing[4] = {0.0, 0.0, 0.0, 0.0 };
@@ -74,7 +75,14 @@ int main(){
     double start = currentSeconds();
     #endif
 
-    
+    printf("++++++++ TEST, OMP = %d,\n", OMP);
+    #if OMP
+        omp_set_num_threads(nthread);
+    #endif
+
+    // --------------------------------TODO: is this for loop necessary?; --------------------------------
+    // --------------------------------TODO: is this for loop necessary?;  --------------------------------
+
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
         // compute energy map and store in engery_array
         compute_E(image_pixel_array, E, num_rows, num_cols);
@@ -116,7 +124,13 @@ int main(){
     #if TIMING
     double delta = currentSeconds() - start;
     printf("------  TIMING ------ %d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
-    
+    #endif
+
+    #if OMP
+        printf("    OMP IS ON\n");
+    #endif
+
+    #if TIMING
     printf("------ TIMING SPLITS ------\n");
     printf("    T_MALLOC = %f\n", t_malloc - t0);
     printf("    T_COMP_E = %f\n    T_COMP_M = %f\n    T_FIND_SEAM = %f\n    T_REMOVE_SEAM = %f\n", \
@@ -171,10 +185,18 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
     int min_pix_val = 0;
 
     int i;
+    #if OMP 
+        #pragma omp parallel for
+    #endif
     for (i = 0; i < num_rows; i++) {
         int j;
-        for (j = 0; j < num_cols; j++) {
+
+        #if OMP 
+            #pragma omp parallel for
+        #endif
+            for (j = 0; j < num_cols; j++) 
             // don't want to remove the edges
+            {
             if (i == num_rows - 1 || j == num_cols - 1) {
                 E[i][j] = MAX_ENERGY;
             } else {
@@ -184,6 +206,7 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
                                        image_pixel_array[i][j + 1]);
             }
             // counter for max and min pixel value
+            // TODO: OMP might cause race condition in editing the max vals
             if (E[i][j] > max_pix_val){
                 max_pix_val = E[i][j];    
             } if (E[i][j] < min_pix_val){
@@ -200,8 +223,17 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
 void compute_M(double** E, double** M, int num_rows, int num_cols) {
     int i;
     memcpy(M[0], E[0], sizeof(double) * num_cols);
+
+    #if OMP 
+        #pragma omp parallel for
+    #endif
     for (i = 0; i < num_rows; i++) {
         int j;
+
+        #if OMP 
+        #pragma omp parallel for
+    #endif
+
         for (j = 0; j < num_cols; j++) {
             double middle = M[i][j];
             
@@ -244,6 +276,9 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
     int j;
     int min_cost_col = 0;
     int min_cost = last_row[0];
+    #if OMP 
+        #pragma omp parallel for
+    #endif
     for (j = 1; j < num_cols; j++) {
         int current_cost = last_row[j];
         if (current_cost < min_cost) {
@@ -323,6 +358,9 @@ void remove_seam(pixel_t*** image_pixel_array_pt, int* seam_path, int* rows, int
 
     // need to shift every pixel after the seam over to the "left"
     int i;
+    #if OMP 
+        #pragma omp parallel for
+    #endif
     for (i = 0; i < num_rows; i++) {
         int j;
         int seam_col = seam_path[i];
