@@ -38,7 +38,7 @@ int main(){
     // alloc mem for seam_path array
     // int* seam_path = malloc(sizeof(int) * num_rows);
     int seam_num;
-    int NUM_SEAMS_TO_TRY = num_cols / 5;
+    int NUM_SEAMS_TO_TRY = num_cols / 4;
     int** seam_paths = malloc(sizeof(int*) * NUM_SEAMS_TO_TRY);
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_TRY; seam_num++) {
         seam_paths[seam_num] = malloc(sizeof(int) * num_rows);

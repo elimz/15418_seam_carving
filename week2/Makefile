@@ -1,5 +1,6 @@
 CC=gcc
-CFLAGS=-g -Wall -DDEBUG=$(DEBUG)
+DEBUG=0
+CFLAGS=-g -O3 -Wall -DDEBUG=$(DEBUG)
 
 CFILES = seam.c cycletimer.c sort.c
 HFILES = seam.h cycletimer.h sort.h
