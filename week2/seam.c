@@ -206,7 +206,6 @@ double find_seam(double** E, int* seam_path, int num_rows, int num_cols) {
     }
 
     return sum;
-    // return 0.0;
 
     // for (i = 0; i < num_rows; i++) {
     //     if (seam_path[i] < 0) {
@@ -218,17 +217,12 @@ double find_seam(double** E, int* seam_path, int num_rows, int num_cols) {
 
 // colors the seam pixels red and outputs the image
 void color_seam(pixel_t*** image_pixel_array, int* seam_path, int num_rows, int num_cols, int max_px_val, char* seam_file) {
-    // int seam_num;
-    // for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
-    //     int* current_seam_path = seam_paths[seam_num];
-
-        int i;
-        for (i = 0; i < num_rows; i++) {
-            (*image_pixel_array)[i][seam_path[i]].R = 255;
-            (*image_pixel_array)[i][seam_path[i]].G = 0;
-            (*image_pixel_array)[i][seam_path[i]].B = 0;
-        }
-    // }
+    int i;
+    for (i = 0; i < num_rows; i++) {
+        (*image_pixel_array)[i][seam_path[i]].R = 255;
+        (*image_pixel_array)[i][seam_path[i]].G = 0;
+        (*image_pixel_array)[i][seam_path[i]].B = 0;
+    }
 
     // call function to output image
     output_image(*image_pixel_array, seam_file, num_rows, num_cols, max_px_val);
