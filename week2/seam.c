@@ -7,12 +7,23 @@
 
 // TODO next: 
 // - measure timing; 
-// - use valgrind to measaure memory allocated, before and after changing to a 
-//  1D array; 
+// - use valgrind to measaure memory allocated, before and after changing to a 1D array; 
 // - handle image input and output naming inside main function
+// Stretch goal:
+// - different data structure to store RGB info. 
+//      instead of storing all of (RGB) in one huge matrix, separate into 3 matrices; 
+//      this might benefit parallelizing later 
+
 #include "seam.h"
 
+#ifndef TIMING 
 #define TIMING 1
+#endif
+
+#ifndef OMP
+#define OMP 0
+#endif
+
 
 #define MAX_ENERGY 9999999
 #define NUM_SEAMS_TO_REMOVE 300
@@ -60,9 +71,10 @@ int main(){
     #define T_COMP_M        1
     #define T_FIND_SEAM     2
     #define T_REMOVE_SEAM   3
+    double start = currentSeconds();
     #endif
 
-    double start = currentSeconds();
+    
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
         // compute energy map and store in engery_array
         compute_E(image_pixel_array, E, num_rows, num_cols);
