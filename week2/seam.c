@@ -181,7 +181,7 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     double delty2 = (dyR + dyG + dyB) / 2.0;
 
     // return magnitude for gradient magnitude
-    return sqrt(deltx2 + delty2);
+    return deltx2 + delty2;
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
