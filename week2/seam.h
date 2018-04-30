@@ -4,8 +4,8 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
-#include <time.h>
 
+#include "sort.h"
 #include "cycletimer.h"
 
 typedef struct pixel {
