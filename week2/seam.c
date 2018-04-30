@@ -14,7 +14,7 @@
 
 #define MAX_ENERGY 9999999.0
 #define NUM_SEAMS_TO_REMOVE 300
-// #define NUM_SEAMS_TO_TRY 50
+// #define NUM_SEAMS_TO_TRY 20
 
 char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
@@ -23,11 +23,12 @@ char* seam_file = "output_seam.ppm";
 int main(){
 
     int num_rows, num_cols, original_cols, max_px_val;
-    // TODO: pass in file paths into all the functions 
-    // char *file_path = "./images/tower.ppm";
+    time_t t;
+
     // pass in pointers for image array pointer, width, height
     pixel_t** image_pixel_array = build_matrix(&num_rows, &num_cols, &max_px_val, input_file);
     original_cols = num_cols;
+
     // alloc for E array
     int row; 
     double** E = malloc(sizeof(double*) * num_rows);
@@ -35,44 +36,45 @@ int main(){
         E[row] = malloc(sizeof(double) * num_cols);
     }
 
+    // num seams to try in each iteration
+    // limit max num seams to try to 200
+    int NUM_SEAMS_TO_TRY = num_cols / 3;
+    if (NUM_SEAMS_TO_TRY > 200) {
+        NUM_SEAMS_TO_TRY = 200;
+    }
+
+    // array of random indicies
+    int first_row_indices[NUM_SEAMS_TO_TRY];
+
     // alloc mem for seam_path array
-    // int* seam_path = malloc(sizeof(int) * num_rows);
     int seam_num;
-    int NUM_SEAMS_TO_TRY = num_cols / 4;
     int** seam_paths = malloc(sizeof(int*) * NUM_SEAMS_TO_TRY);
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_TRY; seam_num++) {
         seam_paths[seam_num] = malloc(sizeof(int) * num_rows);
     }
 
-    double start = currentSeconds();
+    srand((unsigned) time(&t));
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
+    double start = currentSeconds();
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
 
         // compute energy map and store in engery_array
         compute_E(image_pixel_array, E, num_rows, num_cols);
         // printf("Finished computing E\n");
 
-        // set up arrays to sort
-        double* first_row = E[0];
-        double first_row_pixel[num_cols];
-        int first_row_indices[num_cols];
-        memcpy(first_row_pixel, first_row, num_cols * sizeof(double));
+        // popular indicies to try with random starting pixels
         int idx;
-        for (idx = 0; idx < num_cols; idx++) {
-            first_row_indices[idx] = idx;
+        for (idx = 0; idx < NUM_SEAMS_TO_TRY; idx++) {
+            first_row_indices[idx] = rand() % (num_cols - 1);
         }
 
-        // sort to find the indices of least energy in the first row
-        quickSort_double(first_row_pixel, first_row_indices, 0, num_cols - 1);
 
         int trial_num;
         double smallest_cost_path = INT_MAX * 1.0;
         int smallest_cost_index = -1;
         for (trial_num = 0; trial_num < NUM_SEAMS_TO_TRY; trial_num++) {
-            // printf("AAAAAA: %d , first_row_indices[trial_num]: %d \n", trial_num, first_row_indices[trial_num]);
             seam_paths[trial_num][0] = first_row_indices[trial_num];
-            // printf("Trying find seam %d\n", trial_num);
             double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
             if (path_cost < smallest_cost_path) {
                 smallest_cost_index = trial_num;
