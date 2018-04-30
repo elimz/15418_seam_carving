@@ -97,9 +97,6 @@ int main_support(int nthread){
         omp_set_num_threads(nthread);
     #endif
 
-    // --------------------------------TODO: is this for loop necessary?; --------------------------------
-    // --------------------------------TODO: is this for loop necessary?;  --------------------------------
-
     double t_start_E, t_start_M, t_start_f_seam, t_start_rm_seam; 
     double t_loop_start;
 
@@ -210,7 +207,7 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     double delty2 = (dyR + dyG + dyB) / 2.0;
 
     // return magnitude for gradient magnitude
-    return sqrt(deltx2 + delty2);
+    return deltx2 + delty2;
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
@@ -305,9 +302,11 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
     int j;
     int min_cost_col = 0;
     int min_cost = last_row[0];
-    #if OMP 
-        #pragma omp parallel for
-    #endif
+
+    // CHANGE TO OMP REDUCE!
+    // #if OMP 
+    //     #pragma omp parallel for
+    // #endif
     for (j = 1; j < num_cols; j++) {
         int current_cost = last_row[j];
         if (current_cost < min_cost) {
@@ -320,9 +319,6 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
     // go up from the bottom and find the small cost path
     int i;
     seam_path[num_rows - 1] = min_cost_col;
-    #if OMP 
-        #pragma omp parallel for
-    #endif
     for (i = num_rows - 2; i >= 0; i--) {
         int prev_col = seam_path[i + 1];
         double middle = M[i][prev_col];
@@ -396,9 +392,6 @@ void remove_seam(pixel_t*** image_pixel_array_pt, int* seam_path, int* rows, int
     for (i = 0; i < num_rows; i++) {
         int j;
         int seam_col = seam_path[i];
-        #if OMP 
-            #pragma omp parallel for
-        #endif
         // seam col guaranteed to be at least 0
         for (j = seam_col + 1; j < num_cols; j++) {
             (*image_pixel_array_pt)[i][j - 1] = (*image_pixel_array_pt)[i][j];
