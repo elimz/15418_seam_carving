@@ -44,10 +44,11 @@ int main(){
     original_cols = num_cols;
     // alloc for E array
     int row; 
-    double** E = malloc(sizeof(double*) * num_rows);
-    for (row = 0; row < num_rows; row++) {
-        E[row] = malloc(sizeof(double) * num_cols);
-    }
+    // double** E = malloc(sizeof(double*) * num_rows);
+    // for (row = 0; row < num_rows; row++) {
+    //     E[row] = malloc(sizeof(double) * num_cols);
+    // }
+    double* E = malloc(sizeof(double) * (num_rows * num_cols));
 
     // alloc mem for M array
     double** M = malloc(sizeof(double*) * num_rows);
@@ -149,10 +150,10 @@ int main(){
     // char* out_file_name = "tower_out.ppm";
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
     
-    // free data structures 
-    for (row = 0; row < num_rows; row++) {
-        free(E[row]);
-    }
+    // // free data structures 
+    // for (row = 0; row < num_rows; row++) {
+    //     free(E[row]);
+    // }
 
     for (row = 0; row < num_rows; row++) {
         free(M[row]);
@@ -188,10 +189,8 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
-void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_cols) {
-    // debug: 
-    int max_pix_val = 0; 
-    int min_pix_val = 0;
+void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
+    // TODO: flatten the array; need to work on indexing; 
 
     int i;
 
@@ -205,20 +204,28 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
             // don't want to remove the edges
             {
             if (i == num_rows - 1 || j == num_cols - 1) {
-                E[i][j] = MAX_ENERGY;
+                // E[i][j] = MAX_ENERGY;
+                E[i * num_cols + j] = MAX_ENERGY;
             } else {
-                 E[i][j] = pixel_difference(image_pixel_array[i][j],
+            //      E[i][j] = pixel_difference(image_pixel_array[i][j],
+            //                            image_pixel_array[i + 1][j],
+            //                            image_pixel_array[i][j],
+            //                            image_pixel_array[i][j + 1]);
+                 E[i * num_cols + j] = pixel_difference(image_pixel_array[i][j],
                                        image_pixel_array[i + 1][j],
                                        image_pixel_array[i][j],
                                        image_pixel_array[i][j + 1]);
             }
-            // counter for max and min pixel value
-            // TODO: OMP might cause race condition in editing the max vals
-            if (E[i][j] > max_pix_val){
-                max_pix_val = E[i][j];    
-            } if (E[i][j] < min_pix_val){
-                min_pix_val = E[i][j];
-            } 
+            // TODO: keep a local copy, and store multiple of them at one?
+
+
+            // // counter for max and min pixel value
+            // // TODO: OMP might cause race condition in editing the max vals
+            // if (E[i][j] > max_pix_val){
+            //     max_pix_val = E[i][j];    
+            // } if (E[i][j] < min_pix_val){
+            //     min_pix_val = E[i][j];
+            // } 
         }
     }
     // // debug: print out gradient file;
@@ -227,9 +234,9 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
 }
 
 // M(i, j) = E(i, j) + min(M(i - 1, j - 1), M(i - 1, j), M(i - 1, j + 1))
-void compute_M(double** E, double** M, int num_rows, int num_cols) {
+void compute_M(double* E, double** M, int num_rows, int num_cols) {
     int i;
-    memcpy(M[0], E[0], sizeof(double) * num_cols);
+    memcpy(M[0], E, sizeof(double) * num_cols);// copy the first row;
 
     for (i = 0; i < num_rows; i++) {
         int j;
@@ -256,19 +263,12 @@ void compute_M(double** E, double** M, int num_rows, int num_cols) {
             }
 
             if (i < num_rows - 1){
-                M[i + 1][j] = E[i + 1][j] + fmin(middle, fmin(left, right));
+                // M[i + 1][j] = E[i + 1][j] + fmin(middle, fmin(left, right));
+                int new_row  = i + 1;
+                M[i + 1][j] = E[new_row * num_cols + j] + fmin(middle, fmin(left, right));
             }
         }
     }
-
-
-    // for (i = 0; i < num_rows; i++) {
-    //     int j;
-    //     for (j = 0; j < num_cols; j++) {
-    //         printf("%.2f, ", M[i][j]);
-    //     }
-    //     printf("\n");
-    // }
 }
 
 // finds the seam from M
