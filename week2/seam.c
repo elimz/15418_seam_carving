@@ -20,6 +20,10 @@
 #define TIMING 1
 #endif
 
+#ifndef INFO_ON         // info on how much we have finished
+#define INFO_ON 0 
+#endif
+
 #define MAX_ENERGY 9999999
 #define NUM_SEAMS_TO_REMOVE 300
 
@@ -27,11 +31,22 @@ char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
-// TODO: 
-int nthread = 8;
+// // TODO: 
+// int nthread = 1;
 
+// TEMP - timer ode, time 32 iterations
 int main(){
-    
+    int nthread;
+    for (nthread = 1; nthread < 32; nthread ++){
+        main_support(nthread);
+    }
+    printf("++++++++++ DONE ++++++++++ \n");
+    return 1;
+}
+
+
+// int main(){
+int main_support(int nthread){
     #if TIMING
     double t0 = currentSeconds();
     #endif
@@ -56,7 +71,8 @@ int main(){
     }
 
     // alloc mem for seam_path array
-    int* seam_path = malloc(sizeof(int) * num_rows);
+    // int* seam_path = malloc(sizeof(int) * num_rows);
+    int* seam_path = calloc (sizeof(int), num_rows);
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     #if TIMING
@@ -76,7 +92,7 @@ int main(){
     double start = currentSeconds();        // after malloc
     #endif
 
-    printf("++++++++ TEST, OMP = %d,\n", OMP);
+    // printf("++++++++ TEST, OMP = %d,\n", OMP);
     #if OMP
         omp_set_num_threads(nthread);
     #endif
@@ -101,6 +117,7 @@ int main(){
         // compute M from E
         compute_M(E, M, num_rows, num_cols);
         // printf("Finished computing M\n");
+
         #if TIMING
         t_start_M = currentSeconds();
         double t_compute_M = t_start_M - t_start_E;
@@ -132,19 +149,25 @@ int main(){
 
     #if TIMING
     double delta = currentSeconds() - start;
-    printf("------  TIMING ------ %d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
+    // printf("------  TIMING ------ %d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
+    printf("final time w threads: %d, %.3f\n", nthread, delta);
     #endif
 
-    #if OMP
+    #if OMP && INFO_ON
         printf("    OMP IS ON\n");
     #endif
 
-    #if TIMING
+    // #if TIMING
     printf("------ TIMING SPLITS ------\n");
-    printf("    T_MALLOC = %f\n", t_malloc);
-    printf("    T_COMP_E = %f\n    T_COMP_M = %f\n    T_FIND_SEAM = %f\n    T_REMOVE_SEAM = %f\n", \
-        timing[T_COMP_E], timing[T_COMP_M], timing[T_FIND_SEAM], timing[T_REMOVE_SEAM]);
-    #endif
+    printf("malloc, E, M, find_seam, remove_seam: %.3f, %.3f, %.3f, %.3f, %.3f\n",\
+        t_malloc, timing[T_COMP_E], timing[T_COMP_M], timing[T_FIND_SEAM], timing[T_REMOVE_SEAM]);
+
+
+    // printf("    T_MALLOC = %f\n", t_malloc);
+    // printf("    T_COMP_E = %f\n    T_COMP_M = %f\n    T_FIND_SEAM = %f\n    T_REMOVE_SEAM = %f\n", \
+    //     timing[T_COMP_E], timing[T_COMP_M], timing[T_FIND_SEAM], timing[T_REMOVE_SEAM]);
+    // #endif
+
     // output image;        TODO: change file name to match file input name
     // char* out_file_name = "tower_out.ppm";
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
@@ -166,7 +189,10 @@ int main(){
     free(M);
     free(seam_path);
     free(image_pixel_array);
+    #if INFO_ON
     printf("Finished - Image Processing Finished! \n");
+    #endif 
+
     return 0;
 }  
 
@@ -190,8 +216,8 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
 // takes in an image, and return an energy map calculated by gradient magnitude
 void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_cols) {
     // debug: 
-    int max_pix_val = 0; 
-    int min_pix_val = 0;
+    // int max_pix_val = 0; 
+    // int min_pix_val = 0;
 
     int i;
 
@@ -212,13 +238,12 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
                                        image_pixel_array[i][j],
                                        image_pixel_array[i][j + 1]);
             }
-            // counter for max and min pixel value
-            // TODO: OMP might cause race condition in editing the max vals
-            if (E[i][j] > max_pix_val){
-                max_pix_val = E[i][j];    
-            } if (E[i][j] < min_pix_val){
-                min_pix_val = E[i][j];
-            } 
+            // // counter for max and min pixel value
+            // if (E[i][j] > max_pix_val){
+            //     max_pix_val = E[i][j];    
+            // } if (E[i][j] < min_pix_val){
+            //     min_pix_val = E[i][j];
+            // } 
         }
     }
     // // debug: print out gradient file;
@@ -421,9 +446,10 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     }
     *max_px = max_px_val;
 
-
+    #if INFO_ON
     printf("Reading in image with size (%d, %d), max pixel value = %d\n", \
         num_cols, num_rows, max_px_val);
+    #endif
 
 
     // now parse all the rgb info into a matrix;
@@ -482,7 +508,9 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     // allowing other funcitons to access matrix: 
     // *mx = matrix;
     fclose(ppm_file);
+    #if INFO_ON
     printf("Finished - convert input image into matrix\n");
+    #endif
     return matrix;
 } 
 
@@ -569,5 +597,7 @@ void intermediary_img(double ** matrix, char* output_file,  \
             // printf("%lf\n", curr_value);
         }
     }
+    #if INFO_ON
     printf("Finished - writing intermediary image to output.\n");
+    #endif
 }

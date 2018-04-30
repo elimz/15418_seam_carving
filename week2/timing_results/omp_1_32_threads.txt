@@ -1,0 +1,94 @@
+final time w threads: 1, 5.799
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.373, 3.430, 1.919, 0.008, 0.442
+final time w threads: 2, 3.447
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 1.980, 1.190, 0.005, 0.272
+final time w threads: 3, 2.598
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 1.465, 0.931, 0.004, 0.198
+final time w threads: 4, 2.196
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 1.216, 0.813, 0.003, 0.162
+final time w threads: 5, 1.944
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.286, 1.065, 0.739, 0.003, 0.137
+final time w threads: 6, 1.842
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 0.996, 0.722, 0.003, 0.121
+final time w threads: 7, 1.766
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 0.942, 0.714, 0.002, 0.108
+final time w threads: 8, 1.659
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 0.879, 0.676, 0.002, 0.102
+final time w threads: 9, 1.873
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.280, 1.022, 0.745, 0.002, 0.104
+final time w threads: 10, 1.880
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.279, 1.009, 0.768, 0.002, 0.101
+final time w threads: 11, 1.789
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.280, 0.952, 0.736, 0.002, 0.099
+final time w threads: 12, 1.928
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.291, 1.016, 0.813, 0.003, 0.096
+final time w threads: 13, 1.876
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 0.990, 0.791, 0.002, 0.093
+final time w threads: 14, 2.036
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.279, 1.059, 0.886, 0.002, 0.089
+final time w threads: 15, 2.032
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.280, 1.044, 0.897, 0.002, 0.088
+final time w threads: 16, 2.071
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.278, 1.068, 0.914, 0.002, 0.086
+final time w threads: 17, 15.573
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.291, 7.775, 7.680, 0.016, 0.102
+final time w threads: 18, 16.508
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.295, 8.238, 8.149, 0.017, 0.104
+final time w threads: 19, 17.452
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 8.708, 8.624, 0.018, 0.102
+final time w threads: 20, 18.300
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.288, 9.129, 9.051, 0.019, 0.100
+final time w threads: 21, 19.229
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.295, 9.589, 9.521, 0.020, 0.100
+final time w threads: 22, 20.184
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 10.059, 10.006, 0.021, 0.098
+final time w threads: 23, 21.062
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 10.503, 10.441, 0.022, 0.096
+final time w threads: 24, 22.031
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.291, 10.988, 10.923, 0.023, 0.096
+final time w threads: 25, 22.838
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 11.397, 11.321, 0.024, 0.097
+final time w threads: 26, 23.788
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 11.871, 11.795, 0.025, 0.097
+final time w threads: 27, 24.650
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 12.296, 12.231, 0.026, 0.097
+final time w threads: 28, 25.518
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 12.735, 12.658, 0.027, 0.098
+final time w threads: 29, 26.405
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 13.177, 13.103, 0.028, 0.097
+final time w threads: 30, 27.173
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.295, 13.567, 13.480, 0.028, 0.098
+final time w threads: 31, 27.974
+------ TIMING SPLITS ------
+malloc, E, M, find_seam, remove_seam: 0.294, 13.966, 13.879, 0.029, 0.100
+++++++++++ DONE ++++++++++ 
