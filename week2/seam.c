@@ -192,41 +192,60 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
 void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
     // TODO: flatten the array; need to work on indexing; 
 
-    int i;
-
+    // int i, j;
+    int i ;
+    double current_val;
+    double temp_array[8];     // store 8 numbers
+    int counter = 0;            // 8 number counter; 
+    int start_idx; 
     for (i = 0; i < num_rows; i++) {
         int j;
 
         #if OMP 
             #pragma omp parallel for
         #endif
-            for (j = 0; j < num_cols; j++) 
+            for (j = 0; j < num_cols; j++) {
             // don't want to remove the edges
-            {
             if (i == num_rows - 1 || j == num_cols - 1) {
                 // E[i][j] = MAX_ENERGY;
-                E[i * num_cols + j] = MAX_ENERGY;
+                // E[i * num_cols + j] = MAX_ENERGY;
+                current_val = MAX_ENERGY;
             } else {
-            //      E[i][j] = pixel_difference(image_pixel_array[i][j],
-            //                            image_pixel_array[i + 1][j],
-            //                            image_pixel_array[i][j],
-            //                            image_pixel_array[i][j + 1]);
-                 E[i * num_cols + j] = pixel_difference(image_pixel_array[i][j],
+                 // E[i][j] = pixel_difference(image_pixel_array[i][j],
+                 //                       image_pixel_array[i + 1][j],
+                 //                       image_pixel_array[i][j],
+                 //                       image_pixel_array[i][j + 1]);
+                current_val = pixel_difference(image_pixel_array[i][j],
                                        image_pixel_array[i + 1][j],
                                        image_pixel_array[i][j],
                                        image_pixel_array[i][j + 1]);
+
             }
-            // TODO: keep a local copy, and store multiple of them at one?
+            E[i * num_cols + j] = current_val;
 
+            // // TODO: keep a local copy, and store multiple of them at one?
+            // // write to memory every 8th;
+            // // E[i * num_cols + j] = current_val; 
 
-            // // counter for max and min pixel value
-            // // TODO: OMP might cause race condition in editing the max vals
-            // if (E[i][j] > max_pix_val){
-            //     max_pix_val = E[i][j];    
-            // } if (E[i][j] < min_pix_val){
-            //     min_pix_val = E[i][j];
+            // // TRIAL - batched w
+            // // record starting index; 
+            // if (counter == 0) {
+            //     start_idx = i * num_cols + j;
             // } 
-        }
+
+            // // store in temp_array, and inc counter; 
+            // temp_array[counter] = current_val; 
+            
+            // if (counter == 7){
+            //     // clear to 0, flush to memory; 
+            //     int j; 
+            //     for (j = 0; j < 8; j ++){
+            //         E[start_idx + j] = temp_array[j];
+            //     }
+            //     counter = 0; 
+            // }
+            // counter ++;         
+        } 
     }
     // // debug: print out gradient file;
     // char* output_file = "gradient.ppm";
