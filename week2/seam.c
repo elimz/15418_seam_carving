@@ -23,6 +23,11 @@
 #define MAX_ENERGY 9999999
 #define NUM_SEAMS_TO_REMOVE 300
 
+// debug - batch write for compute_E; 
+#ifndef BATCH 
+#define BATCH 1
+#endif
+
 char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
@@ -77,13 +82,15 @@ int main(){
     double start = currentSeconds();        // after malloc
     #endif
 
-    printf("++++++++ TEST, OMP = %d,\n", OMP);
+    
     #if OMP
+        printf("++++++++ TEST, OMP is ON\n");
         omp_set_num_threads(nthread);
     #endif
 
-    // --------------------------------TODO: is this for loop necessary?; --------------------------------
-    // --------------------------------TODO: is this for loop necessary?;  --------------------------------
+    #if BATCH
+        printf("++++++++ TEST, BATCH is ON\n");
+    #endif
 
     double t_start_E, t_start_M, t_start_f_seam, t_start_rm_seam; 
     double t_loop_start;
@@ -195,9 +202,9 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
     // int i, j;
     int i ;
     double current_val;
-    double temp_array[8];     // store 8 numbers
-    int counter = 0;            // 8 number counter; 
-    int start_idx; 
+    double temp_array[8];       // store 8 numbers
+    int temp_counter = 0;       // 8 number counter; 
+    int start_idx;              // starting index of the 8 numbers
     for (i = 0; i < num_rows; i++) {
         int j;
 
@@ -205,47 +212,36 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
             #pragma omp parallel for
         #endif
             for (j = 0; j < num_cols; j++) {
-            // don't want to remove the edges
-            if (i == num_rows - 1 || j == num_cols - 1) {
-                // E[i][j] = MAX_ENERGY;
-                // E[i * num_cols + j] = MAX_ENERGY;
-                current_val = MAX_ENERGY;
-            } else {
-                 // E[i][j] = pixel_difference(image_pixel_array[i][j],
-                 //                       image_pixel_array[i + 1][j],
-                 //                       image_pixel_array[i][j],
-                 //                       image_pixel_array[i][j + 1]);
-                current_val = pixel_difference(image_pixel_array[i][j],
-                                       image_pixel_array[i + 1][j],
-                                       image_pixel_array[i][j],
-                                       image_pixel_array[i][j + 1]);
-
-            }
-            E[i * num_cols + j] = current_val;
-
-            // // TODO: keep a local copy, and store multiple of them at one?
-            // // write to memory every 8th;
-            // // E[i * num_cols + j] = current_val; 
-
-            // // TRIAL - batched w
-            // // record starting index; 
-            // if (counter == 0) {
-            //     start_idx = i * num_cols + j;
-            // } 
-
-            // // store in temp_array, and inc counter; 
-            // temp_array[counter] = current_val; 
-            
-            // if (counter == 7){
-            //     // clear to 0, flush to memory; 
-            //     int j; 
-            //     for (j = 0; j < 8; j ++){
-            //         E[start_idx + j] = temp_array[j];
-            //     }
-            //     counter = 0; 
-            // }
-            // counter ++;         
-        } 
+                // don't want to remove the edges
+                if (i == num_rows - 1 || j == num_cols - 1) {
+                    temp_array[temp_counter] = MAX_ENERGY;
+                } else {
+                    temp_array[temp_counter] = pixel_difference(image_pixel_array[i][j],
+                                           image_pixel_array[i + 1][j],
+                                           image_pixel_array[i][j],
+                                           image_pixel_array[i][j + 1]);
+                }
+                
+                #if BATCH
+                    if (temp_counter == 0){
+                        start_idx = i * num_cols + j; 
+                    }
+                    // store thigns at location rep by current counter;
+                    // temp_array[temp_counter] = current_val;
+                    temp_counter ++; 
+                    if (temp_counter == 8){
+                        // flush to memory; 
+                        int offset; 
+                        for (offset = 0; offset < 8; offset ++){
+                            E[offset + start_idx] = temp_array[offset];
+                        }
+                        // reset counter ;
+                        temp_counter = 0;
+                    }
+                #else 
+                    E[i * num_cols + j] = current_val; 
+                #endif    
+            } 
     }
     // // debug: print out gradient file;
     // char* output_file = "gradient.ppm";
