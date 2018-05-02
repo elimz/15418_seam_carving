@@ -29,7 +29,7 @@
 
 // debug - batch write for compute_E; 
 #ifndef BATCH 
-#define BATCH 0
+#define BATCH 1
 #endif
 
 
@@ -206,10 +206,6 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
 
     // int i, j;
     int i ;
-    double current_val;
-    double temp_array[8];       // store 8 numbers
-    int temp_counter = 0;       // 8 number counter; 
-    int start_idx;              // starting index of the 8 numbers
     for (i = 0; i < num_rows; i++) {
         int j;
 
@@ -217,38 +213,50 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
             #pragma omp parallel for
         #endif
         // TODO: need to separate this into better chunks 
-
-            for (j = 0; j < num_cols; j++) {
+            #if BATCH
+                double current_val;
+                double temp_array[8];       // store 8 numbers
+                int temp_counter = 0;       // 8 number counter; 
+                int start_idx;              // starting index of the 8 numbers
+                for (j = 0; j < num_cols; j++) {
+                    // don't want to remove the edges
+                    if (i == num_rows - 1 || j == num_cols - 1) {
+                        current_val = MAX_ENERGY;
+                    } else {
+                        temp_array[temp_counter] = pixel_difference(image_pixel_array[i][j],
+                                               image_pixel_array[i + 1][j],
+                                               image_pixel_array[i][j],
+                                               image_pixel_array[i][j + 1]);
+                    }
+                if (temp_counter == 0){
+                    start_idx = i * num_cols + j; 
+                }
+                // store thigns at location rep by current counter;
+                // temp_array[temp_counter] = current_val;
+                temp_counter ++; 
+                if (temp_counter == 8){
+                    // flush to memory; 
+                    int offset; 
+                    for (offset = 0; offset < 8; offset ++){
+                        E[offset + start_idx] = temp_array[offset];
+                    }
+                    // printf(" ===== flushing - %ld bytes total\n", sizeof(double) * 8);
+                    // reset counter ;
+                    temp_counter = 0;
+                }
+            #else 
+                for (j = 0; j < num_cols; j++) {
                 // don't want to remove the edges
                 if (i == num_rows - 1 || j == num_cols - 1) {
-                    temp_array[temp_counter] = MAX_ENERGY;
+                    // temp_array[temp_counter] = MAX_ENERGY;
+                    E[i * num_cols + j] = MAX_ENERGY;
                 } else {
-                    temp_array[temp_counter] = pixel_difference(image_pixel_array[i][j],
+                    E[i * num_cols + j] = pixel_difference(image_pixel_array[i][j],
                                            image_pixel_array[i + 1][j],
                                            image_pixel_array[i][j],
                                            image_pixel_array[i][j + 1]);
                 }
-                
-                #if BATCH
-                    if (temp_counter == 0){
-                        start_idx = i * num_cols + j; 
-                    }
-                    // store thigns at location rep by current counter;
-                    // temp_array[temp_counter] = current_val;
-                    temp_counter ++; 
-                    if (temp_counter == 8){
-                        // flush to memory; 
-                        int offset; 
-                        for (offset = 0; offset < 8; offset ++){
-                            E[offset + start_idx] = temp_array[offset];
-                        }
-                        // printf(" ===== flushing - %ld bytes total\n", sizeof(double) * 8);
-                        // reset counter ;
-                        temp_counter = 0;
-                    }
-                #else 
-                    E[i * num_cols + j] = current_val; 
-                #endif    
+            #endif    
             } 
     }
     // // debug: print out gradient file;
