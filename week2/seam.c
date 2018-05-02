@@ -7,20 +7,41 @@
 
 // TODO next: 
 // - measure timing; 
-// - use valgrind to measaure memory allocated, before and after changing to a 
-//  1D array; 
+// - use valgrind to measaure memory allocated, before and after changing to a 1D array; 
 // - handle image input and output naming inside main function
+// Stretch goal:
+// - different data structure to store RGB info. 
+//      instead of storing all of (RGB) in one huge matrix, separate into 3 matrices; 
+//      this might benefit parallelizing later 
+
 #include "seam.h"
 
 #define MAX_ENERGY 9999999.0
 #define NUM_SEAMS_TO_REMOVE 300
 // #define NUM_SEAMS_TO_TRY 50
 
+#ifndef OMP
+#define OMP 1
+#endif
+
+// debug - batch write for compute_E; 
+#ifndef BATCH 
+#define BATCH 0
+#endif
+
+
 char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
+// TODO: 
+int nthread = 8;
+
 int main(){
+    
+    #if TIMING
+    double t0 = currentSeconds();
+    #endif
 
     int num_rows, num_cols, original_cols, max_px_val;
     // TODO: pass in file paths into all the functions 
@@ -95,10 +116,10 @@ int main(){
 
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
     
-    // free data structures 
-    for (row = 0; row < num_rows; row++) {
-        free(E[row]);
-    }
+    // // free data structures 
+    // for (row = 0; row < num_rows; row++) {
+    //     free(E[row]);
+    // }
 
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_TRY; seam_num++) {
         free(seam_paths[seam_num]);
@@ -136,12 +157,14 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
+
 void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_cols) {
     // debug: 
     // int max_pix_val = 255; 
     // int min_pix_val = 0;
 
-    int i;
+    // int i, j;
+    int i ;
     for (i = 0; i < num_rows; i++) {
         int j;
         for (j = 0; j < num_cols; j++) {
@@ -162,7 +185,6 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
             // } 
         }
     }
-
     // // debug: print out gradient file;
     // char* output_file1 = "gradient.ppm";
     // intermediary_img(E, output_file1,  num_rows, num_cols, max_pix_val, min_pix_val);
@@ -179,7 +201,6 @@ double find_seam(double** E, int* seam_path, int num_rows, int num_cols) {
     for (i = 1; i < num_rows; i++) {
         int prev_col = seam_path[i - 1];
         double middle = E[i][prev_col];
-
         double left;
         double right;
         if (prev_col - 1 < 0) {
@@ -382,7 +403,7 @@ void output_image(pixel_t** matrix, char* output_file,  int num_rows, int num_co
             }
         }
     }
-    printf("Finished - writing image to output.\n");
+    // printf("Finished - writing image to output.\n");
 }
 
 void intermediary_img(double** matrix, char* output_file,

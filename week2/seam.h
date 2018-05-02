@@ -8,6 +8,11 @@
 #include "sort.h"
 #include "cycletimer.h"
 
+
+#ifndef OMP
+#define OMP 0
+#endif
+
 typedef struct pixel {
     int R;
     int G; 
