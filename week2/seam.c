@@ -16,12 +16,8 @@
 
 #include "seam.h"
 
-#ifndef TIMING 
-#define TIMING 1
-#endif
-
-#define MAX_ENERGY 9999999
-#define NUM_SEAMS_TO_REMOVE 300
+#define MAX_ENERGY 9999999.0
+#define NUM_SEAMS_TO_REMOVE 70
 
 #ifndef OMP
 #define OMP 1
@@ -60,106 +56,56 @@ int main(){
     // }
     double* E = malloc(sizeof(double) * (num_rows * num_cols));
 
-    // alloc mem for M array
-    double** M = malloc(sizeof(double*) * num_rows);
-    for (row = 0; row < num_rows; row++) {
-        M[row] = malloc(sizeof(double) * num_cols);
+    // alloc mem for seam_path array
+    // int* seam_path = malloc(sizeof(int) * num_rows);
+    int seam_num;
+    int** seam_paths = malloc(sizeof(int*) * NUM_SEAMS_TO_REMOVE);
+    for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
+        seam_paths[seam_num] = malloc(sizeof(int) * num_rows);
     }
 
-    // alloc mem for seam_path array
-    int* seam_path = malloc(sizeof(int) * num_rows);
+    double start = currentSeconds();
+
+    // compute energy map and store in engery_array
+    compute_E(image_pixel_array, E, num_rows, num_cols);
+    printf("Finished computing E\n");
+
+    // set up arrays to sort
+    double* first_row = E[0];
+    double first_row_pixel[num_cols];
+    int first_row_indices[num_cols];
+    memcpy(first_row_pixel, first_row, num_cols * sizeof(double));
+    int idx;
+    for (idx = 0; idx < num_cols; idx++) {
+        first_row_indices[idx] = idx;
+    }
+
+    // sort to find the indices of least energy in the first row
+    quickSort_double(first_row_pixel, first_row_indices, 0, num_cols - 1);
+    int ordered_indicies[NUM_SEAMS_TO_REMOVE];
+    memcpy(ordered_indicies, first_row_indices, NUM_SEAMS_TO_REMOVE * sizeof(int));
+    quickSort_int(ordered_indicies, 0, NUM_SEAMS_TO_REMOVE - 1);
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
-    #if TIMING
-    double c_time_malloc = currentSeconds(); 
-    double t_malloc = c_time_malloc - t0;
-    #endif
-
-    int seam_num;
-
-    // timer array for different sections 
-    #if TIMING
-    double timing[4] = {0.0, 0.0, 0.0, 0.0 };
-    #define T_COMP_E        0
-    #define T_COMP_M        1
-    #define T_FIND_SEAM     2
-    #define T_REMOVE_SEAM   3
-    double start = currentSeconds();        // after malloc
-    #endif
-
-    
-    #if OMP
-        printf("++++++++ TEST, OMP is ON\n");
-        omp_set_num_threads(nthread);
-    #endif
-
-    #if BATCH
-        printf("++++++++ TEST, BATCH is ON\n");
-    #endif
-
-    double t_start_E, t_start_M, t_start_f_seam, t_start_rm_seam; 
-    double t_loop_start;
-
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
-        t_loop_start = currentSeconds();
-        // compute energy map and store in engery_array
-        compute_E(image_pixel_array, E, num_rows, num_cols);
-        // printf("Finished computing E\n");
-        #if TIMING
-        t_start_E = currentSeconds();
-        double t_compute_E = t_start_E - t_loop_start;
-        timing[T_COMP_E] += t_compute_E;
-        #endif
-
-        // compute M from E
-        compute_M(E, M, num_rows, num_cols);
-        // printf("Finished computing M\n");
-        #if TIMING
-        t_start_M = currentSeconds();
-        double t_compute_M = t_start_M - t_start_E;
-        timing[T_COMP_M] += t_compute_M;
-        #endif
-        
-        // find seam to remove
-        find_seam(M, seam_path, num_rows, num_cols);
+        printf("%d, ", ordered_indicies[seam_num]);
+        seam_paths[seam_num][0] = ordered_indicies[seam_num];
+        find_seam(E, seam_paths[seam_num], num_rows, num_cols);
         // printf("Finished finding seam\n");
-        #if TIMING
-        t_start_f_seam = currentSeconds();
-        double t_find_seam = t_start_f_seam - t_start_M;
-        timing[T_FIND_SEAM] += t_find_seam;
-        #endif
-        
-        // // color the seam and output the image
-        // color_seam(&image_pixel_array, M, seam_path, num_rows, num_cols, max_px_val, seam_file);
-        // printf("Finished coloring seam\n");
-
-        // remove the seam from the image, also sets new values for num_rows and num_cols
-        remove_seam(&image_pixel_array, seam_path, &num_rows, &num_cols);
-        // printf("Finished removing seam\n");
-        #if TIMING
-        t_start_rm_seam = currentSeconds();
-        double t_remove_seam = t_start_rm_seam - t_start_f_seam;
-        timing[T_REMOVE_SEAM] += t_remove_seam;
-        #endif
     }
 
-    #if TIMING
+    // color the seam and output the image
+    color_seam(&image_pixel_array, seam_paths, num_rows, num_cols, max_px_val, seam_file);
+    printf("Finished coloring seam\n");
+    
+    // remove the seam from the image, also sets new values for num_rows and num_cols
+    remove_seam(&image_pixel_array, seam_paths, &num_rows, &num_cols);
+    printf("Finished removing seam\n");
+
+
     double delta = currentSeconds() - start;
-    printf("------  TIMING ------ %d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
-    #endif
+    printf("%d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
 
-    #if OMP
-        printf("    OMP IS ON\n");
-    #endif
-
-    #if TIMING
-    printf("------ TIMING SPLITS ------\n");
-    printf("    T_MALLOC = %f\n", t_malloc);
-    printf("    T_COMP_E = %f\n    T_COMP_M = %f\n    T_FIND_SEAM = %f\n    T_REMOVE_SEAM = %f\n", \
-        timing[T_COMP_E], timing[T_COMP_M], timing[T_FIND_SEAM], timing[T_REMOVE_SEAM]);
-    #endif
-    // output image;        TODO: change file name to match file input name
-    // char* out_file_name = "tower_out.ppm";
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
     
     // // free data structures 
@@ -167,8 +113,8 @@ int main(){
     //     free(E[row]);
     // }
 
-    for (row = 0; row < num_rows; row++) {
-        free(M[row]);
+    for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
+        free(seam_paths[seam_num]);
     }
 
     for (row = 0; row < num_rows; row++) {
@@ -176,8 +122,7 @@ int main(){
     }
 
     free(E);
-    free(M);
-    free(seam_path);
+    free(seam_paths);
     free(image_pixel_array);
     printf("Finished - Image Processing Finished! \n");
     return 0;
@@ -189,229 +134,165 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     int dxG = abs(pR.G - pL.G);
     int dxB = abs(pR.B - pL.B);
     double deltx2 = (dxR + dxG + dxB) / 2.0;
+    // double deltx2 = (dxR*dxR + dxG*dxG + dxB*dxB);
 
     // find partial derivative for y
     int dyR = abs(pD.R - pU.R);
     int dyG = abs(pD.G - pU.G);
     int dyB = abs(pD.B - pU.B);
     double delty2 = (dyR + dyG + dyB) / 2.0;
+    // double delty2 = (dyR*dyR + dyG*dyG + dyB*dyB);
 
     // return magnitude for gradient magnitude
-    return sqrt(deltx2 + delty2);
+    // return sqrt(deltx2 + delty2);
+    return deltx2 + delty2;
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
-void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
-    // TODO: flatten the array; need to work on indexing; 
+
+void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_cols) {
+    // debug: 
+    // int max_pix_val = 255; 
+    // int min_pix_val = 0;
 
     // int i, j;
     int i ;
     for (i = 0; i < num_rows; i++) {
         int j;
-
-        #if OMP 
-            #pragma omp parallel for
-        #endif
-        // TODO: need to separate this into better chunks 
-            #if BATCH
-                double current_val;
-                double temp_array[8];       // store 8 numbers
-                int temp_counter = 0;       // 8 number counter; 
-                int start_idx;              // starting index of the 8 numbers
-                for (j = 0; j < num_cols; j++) {
-                    // don't want to remove the edges
-                    if (i == num_rows - 1 || j == num_cols - 1) {
-                        current_val = MAX_ENERGY;
-                    } else {
-                        temp_array[temp_counter] = pixel_difference(image_pixel_array[i][j],
-                                               image_pixel_array[i + 1][j],
-                                               image_pixel_array[i][j],
-                                               image_pixel_array[i][j + 1]);
-                    }
-                if (temp_counter == 0){
-                    start_idx = i * num_cols + j; 
-                }
-                // store thigns at location rep by current counter;
-                // temp_array[temp_counter] = current_val;
-                temp_counter ++; 
-                if (temp_counter == 8){
-                    // flush to memory; 
-                    int offset; 
-                    for (offset = 0; offset < 8; offset ++){
-                        E[offset + start_idx] = temp_array[offset];
-                    }
-                    // printf(" ===== flushing - %ld bytes total\n", sizeof(double) * 8);
-                    // reset counter ;
-                    temp_counter = 0;
-                }
-            #else 
-                for (j = 0; j < num_cols; j++) {
-                // don't want to remove the edges
-                if (i == num_rows - 1 || j == num_cols - 1) {
-                    // temp_array[temp_counter] = MAX_ENERGY;
-                    E[i * num_cols + j] = MAX_ENERGY;
-                } else {
-                    E[i * num_cols + j] = pixel_difference(image_pixel_array[i][j],
+        for (j = 0; j < num_cols; j++) {
+            // don't want to remove the edges
+            if (i == num_rows - 1 || j == num_cols - 1) {
+                E[i][j] = MAX_ENERGY;
+            } else {
+                E[i][j] = pixel_difference(image_pixel_array[i][j],
                                            image_pixel_array[i + 1][j],
                                            image_pixel_array[i][j],
                                            image_pixel_array[i][j + 1]);
-                }
-            #endif    
-            } 
-    }
-    // // debug: print out gradient file;
-    // char* output_file = "gradient.ppm";
-    // intermediary_img(E, output_file,  num_rows, num_cols, max_pix_val, min_pix_val);
-}
-
-// M(i, j) = E(i, j) + min(M(i - 1, j - 1), M(i - 1, j), M(i - 1, j + 1))
-void compute_M(double* E, double** M, int num_rows, int num_cols) {
-    int i;
-    memcpy(M[0], E, sizeof(double) * num_cols);// copy the first row;
-
-    for (i = 0; i < num_rows; i++) {
-        int j;
-
-        #if OMP 
-        #pragma omp parallel for
-        #endif
-
-        for (j = 0; j < num_cols; j++) {
-            double middle = M[i][j];
-            
-            double left;
-            double right;
-            if (j - 1 < 0) {
-                left = MAX_ENERGY;
-            } else {
-                left = M[i][j - 1];
             }
-
-            if (j + 1 >= num_cols) {
-                right = MAX_ENERGY;
-            } else {
-                right = M[i][j + 1];
-            }
-
-            if (i < num_rows - 1){
-                // M[i + 1][j] = E[i + 1][j] + fmin(middle, fmin(left, right));
-                int new_row  = i + 1;
-                M[i + 1][j] = E[new_row * num_cols + j] + fmin(middle, fmin(left, right));
-            }
+            // debug 
+            // if (E[i][j] > max_pix_val){
+            //     max_pix_val = E[i][j];    
+            // } if (E[i][j] < min_pix_val){
+            //     min_pix_val = E[i][j];
+            // } 
         }
     }
+    // // debug: print out gradient file;
+    // char* output_file1 = "gradient.ppm";
+    // intermediary_img(E, output_file1,  num_rows, num_cols, max_pix_val, min_pix_val);
 }
 
-// finds the seam from M
-void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
-    // find the min seam cost col in the last row
-    double* last_row = M[num_rows - 1];
-    double MAX_ENERGY_SUM = MAX_ENERGY*num_rows;
+// finds the seam from E
+void find_seam(double** E, int* seam_path, int num_rows, int num_cols) {
 
-    int j;
-    int min_cost_col = 0;
-    int min_cost = last_row[0];
-    #if OMP 
-        #pragma omp parallel for
-    #endif
-    for (j = 1; j < num_cols; j++) {
-        int current_cost = last_row[j];
-        if (current_cost < min_cost) {
-            min_cost = current_cost;
-            min_cost_col = j;
-        } 
-    }
-    M[num_rows - 1][min_cost_col] = MAX_ENERGY_SUM;
+    // find min seams with least energy cost pixel in first row
+    // traverse downwards and greedily pick the least energy cost neighbor
 
-    // go up from the bottom and find the small cost path
     int i;
-    seam_path[num_rows - 1] = min_cost_col;
-    #if OMP 
-        #pragma omp parallel for
-    #endif
-    for (i = num_rows - 2; i >= 0; i--) {
-        int prev_col = seam_path[i + 1];
-        double middle = M[i][prev_col];
-
+    for (i = 1; i < num_rows; i++) {
+        int prev_col = seam_path[i - 1];
+        double middle = E[i][prev_col];
         double left;
         double right;
         if (prev_col - 1 < 0) {
-            left = MAX_ENERGY_SUM;
+            left = INT_MAX;
         } else {
-            left = M[i][prev_col - 1];
+            left = E[i][prev_col - 1];
         }
         if (prev_col + 1 >= num_cols) {
-            right = MAX_ENERGY_SUM;
+            right = INT_MAX;
         } else {
-            right = M[i][prev_col + 1];
+            right = E[i][prev_col + 1];
         }
-        double current_min_cost = fmin(left, fmin(middle, right));
 
-        // printf("left: %f, middle: %f, right: %f, prev_col: %d\n", left, middle, right, prev_col);
+        double current_min_cost = fmin(middle, fmin(left, right));
+
+        if (current_min_cost == INT_MAX) {
+            printf("left: %f, middle: %f, right: %f, prev_col: %d\n", left, middle, right, prev_col);
+        }
 
         if (current_min_cost == middle) {
             seam_path[i] = prev_col;
-            M[i][prev_col] = MAX_ENERGY_SUM;
+            E[i][prev_col] = INT_MAX;
         } else if (current_min_cost == left) {
             seam_path[i] = prev_col - 1;
-            M[i][prev_col - 1] = MAX_ENERGY_SUM;
+            E[i][prev_col - 1] = INT_MAX;
         } else {
             seam_path[i] = prev_col + 1;
-            M[i][prev_col + 1] = MAX_ENERGY_SUM;
+            E[i][prev_col + 1] = INT_MAX;
         }
     }
 
     // for (i = 0; i < num_rows; i++) {
-    //     printf("seam index: %d with value %d\n", i, seam_path[i]);
+    //     if (seam_path[i] < 0) {
+    //         printf("seam index: %d with value %d\n", i, seam_path[i]);
+    //     }
     // }
+    printf("\n\n");
 }
 
 // colors the seam pixels red and outputs the image
-void color_seam(pixel_t*** image_pixel_array, double** M, int* seam_path, int num_rows, int num_cols, int max_px_val, char* seam_file) {
-    int i;
-    for (i = 0; i < num_rows; i++) {
-        (*image_pixel_array)[i][seam_path[i]].R = 255;
-        (*image_pixel_array)[i][seam_path[i]].G = 0;
-        (*image_pixel_array)[i][seam_path[i]].B = 0;
-    }
+void color_seam(pixel_t*** image_pixel_array, int** seam_paths, int num_rows, int num_cols, int max_px_val, char* seam_file) {
+    int seam_num;
+    for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
+        int* current_seam_path = seam_paths[seam_num];
 
-    // int x;
-    // for (x = 0; x < 300; x++) {
-    //     find_seam(M, seam_path, num_rows, num_cols);
-    //     for (i = 0; i < num_rows; i++) {
-    //         (*image_pixel_array)[i][seam_path[i]].R = 255;
-    //         (*image_pixel_array)[i][seam_path[i]].G = 0;
-    //         (*image_pixel_array)[i][seam_path[i]].B = 0;
-    //     }
-    // }
+        int i;
+        for (i = 0; i < num_rows; i++) {
+            (*image_pixel_array)[i][current_seam_path[i]].R = 255;
+            (*image_pixel_array)[i][current_seam_path[i]].G = 0;
+            (*image_pixel_array)[i][current_seam_path[i]].B = 0;
+        }
+    }
 
     // call function to output image
     output_image(*image_pixel_array, seam_file, num_rows, num_cols, max_px_val);
 }
 
 // remove the seam from the image pixel array and get new dimensions
-void remove_seam(pixel_t*** image_pixel_array_pt, int* seam_path, int* rows, int* cols) {
+void remove_seam(pixel_t*** image_pixel_array_pt, int** seam_paths, int* rows, int* cols) {
     int num_rows = *rows;
     int num_cols = *cols;
 
     // need to shift every pixel after the seam over to the "left"
-    int i;
-    #if OMP 
-        #pragma omp parallel for
-    #endif
-    for (i = 0; i < num_rows; i++) {
+    int seams_in_row[NUM_SEAMS_TO_REMOVE];
+    int row;
+    for (row = 0; row < num_rows; row++) { 
+        int seam_num;
+        for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
+            seams_in_row[seam_num] = seam_paths[seam_num][row];
+        }
+        quickSort_int(seams_in_row, 0, NUM_SEAMS_TO_REMOVE - 1);
+        int prev = 0;
+        for (seam_num = 1; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
+            // printf("%d, ", seams_in_row[seam_num]);
+            prev = seams_in_row[seam_num - 1];
+            if (prev == seams_in_row[seam_num]) {
+                printf("AAAAAA\n");
+            }
+        }
+        // printf("\n\n");
+
+        int num_to_remove = 1;
+        int next_seam_idx = 1;
+
         int j;
-        int seam_col = seam_path[i];
-        #if OMP 
-            #pragma omp parallel for
-        #endif
-        // seam col guaranteed to be at least 0
-        for (j = seam_col + 1; j < num_cols; j++) {
-            (*image_pixel_array_pt)[i][j - 1] = (*image_pixel_array_pt)[i][j];
+        for (j = seams_in_row[0] + 1; j < num_cols; j++) {
+            (*image_pixel_array_pt)[row][j - num_to_remove] = (*image_pixel_array_pt)[row][j];
+             if (j == seams_in_row[next_seam_idx]) {
+                num_to_remove++;
+                next_seam_idx++;
+            }
         }
     }
 
-    *cols = num_cols - 1;
+
+    *cols = num_cols - NUM_SEAMS_TO_REMOVE;
+
+
+            // if (seam_col < 0 || seam_col >= num_cols ) {
+        //     printf("LESS THAN 0 \n");
+        // }
 }
 
 
@@ -552,7 +433,7 @@ void output_image(pixel_t** matrix, char* output_file,  int num_rows, int num_co
     // printf("Finished - writing image to output.\n");
 }
 
-void intermediary_img(double ** matrix, char* output_file,  \
+void intermediary_img(double** matrix, char* output_file,
     int num_rows, int num_cols, int max_px_val, int min_px_val){
 
     FILE *fp = fopen(output_file, "wb");
@@ -602,3 +483,6 @@ void intermediary_img(double ** matrix, char* output_file,  \
     }
     printf("Finished - writing intermediary image to output.\n");
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////
+
