@@ -29,7 +29,7 @@
 
 // debug - batch write for compute_E; 
 #ifndef BATCH 
-#define BATCH 1
+#define BATCH 0
 #endif
 
 
