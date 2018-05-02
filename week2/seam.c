@@ -23,10 +23,15 @@
 #define MAX_ENERGY 9999999
 #define NUM_SEAMS_TO_REMOVE 300
 
+#ifndef OMP
+#define OMP 1
+#endif
+
 // debug - batch write for compute_E; 
 #ifndef BATCH 
 #define BATCH 1
 #endif
+
 
 char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
@@ -211,6 +216,8 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
         #if OMP 
             #pragma omp parallel for
         #endif
+        // TODO: need to separate this into better chunks 
+
             for (j = 0; j < num_cols; j++) {
                 // don't want to remove the edges
                 if (i == num_rows - 1 || j == num_cols - 1) {
@@ -235,6 +242,7 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                         for (offset = 0; offset < 8; offset ++){
                             E[offset + start_idx] = temp_array[offset];
                         }
+                        // printf(" ===== flushing - %ld bytes total\n", sizeof(double) * 8);
                         // reset counter ;
                         temp_counter = 0;
                     }
