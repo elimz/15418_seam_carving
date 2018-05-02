@@ -16,7 +16,7 @@
 #define NUM_SEAMS_TO_REMOVE 300
 // #define NUM_SEAMS_TO_TRY 20
 
-char* input_file = "../images/tower.ppm";
+char* input_file = "../images/cameron.ppm";
 char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
