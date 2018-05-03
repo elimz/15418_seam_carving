@@ -200,28 +200,51 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     return sqrt(deltx2 + delty2);
 }
 
+// code from 15418 Spring 2018 assignment 4 write up
+int start_pos_partition (int N, int P, int i){
+    int base = N / P; 
+    int extra = N % P; 
+    if (i < extra)
+        return i * (base + 1);
+    else
+        return i * base + extra;
+}
+
 // takes in an image, and return an energy map calculated by gradient magnitude
 void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
     // TODO: flatten the array; need to work on indexing; 
+    double current_val;
+    double temp_array[8];       // store 8 numbers
+    int temp_counter = 0;       // 8 number counter; 
+    int store_start_idx;              // starting index of the 8 numbers
 
-    // int i, j;
-    int i ;
+    // find my thread id, and work region
+    #if OMP
+    int my_tid = omp_get_thread_num();
+    int my_start = start_pos_partition(num_cols, nthread, my_tid);
+    int my_end; 
+    #endif
+
+    int i, j;
     for (i = 0; i < num_rows; i++) {
-        int j;
+        // #if OMP 
+        //     #pragma omp parallel for
+        // #endif
+            // New partition: block assignment, break down the task by total num_cols / nthread;
+            #if OMP && BATCH
+                
+                // TODO - could improve next step by using an array and only compute once  
+                if (my_tid == nthread - 1){
+                    my_end = num_cols;
+                } else {
+                    // otherwise, my end is the start of next thread;
+                    my_end = start_pos_partition(num_cols, nthread, my_tid + 1);
+                }
 
-        #if OMP 
-            #pragma omp parallel for
-        #endif
-        // TODO: need to separate this into better chunks 
-            #if BATCH
-                double current_val;
-                double temp_array[8];       // store 8 numbers
-                int temp_counter = 0;       // 8 number counter; 
-                int start_idx;              // starting index of the 8 numbers
-                for (j = 0; j < num_cols; j++) {
+                for (j = my_start; j < my_end; j++) {
                     // don't want to remove the edges
                     if (i == num_rows - 1 || j == num_cols - 1) {
-                        current_val = MAX_ENERGY;
+                        temp_array[temp_counter] = MAX_ENERGY;
                     } else {
                         temp_array[temp_counter] = pixel_difference(image_pixel_array[i][j],
                                                image_pixel_array[i + 1][j],
@@ -229,7 +252,7 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                                                image_pixel_array[i][j + 1]);
                     }
                 if (temp_counter == 0){
-                    start_idx = i * num_cols + j; 
+                    store_start_idx = i * num_cols + j; 
                 }
                 // store thigns at location rep by current counter;
                 // temp_array[temp_counter] = current_val;
@@ -238,9 +261,8 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                     // flush to memory; 
                     int offset; 
                     for (offset = 0; offset < 8; offset ++){
-                        E[offset + start_idx] = temp_array[offset];
+                        E[offset + store_start_idx] = temp_array[offset];
                     }
-                    // printf(" ===== flushing - %ld bytes total\n", sizeof(double) * 8);
                     // reset counter ;
                     temp_counter = 0;
                 }

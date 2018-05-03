@@ -29,3 +29,8 @@ void remove_seam(pixel_t*** image_pixel_array, int* seam_path, int* rows, int* c
 // debug / visualization functions
 void intermediary_img(double ** matrix, char* output_file,  \
     int num_rows, int num_cols, int max_px_val, int min_px_val);
+// helper function
+int partition_start_pos (int N, int P, int i);
+
+
+

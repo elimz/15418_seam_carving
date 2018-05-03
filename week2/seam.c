@@ -50,11 +50,11 @@ int main(){
     original_cols = num_cols;
     // alloc for E array
     int row; 
-    // double** E = malloc(sizeof(double*) * num_rows);
-    // for (row = 0; row < num_rows; row++) {
-    //     E[row] = malloc(sizeof(double) * num_cols);
-    // }
-    double* E = malloc(sizeof(double) * (num_rows * num_cols));
+    double** E = malloc(sizeof(double*) * num_rows);
+    for (row = 0; row < num_rows; row++) {
+        E[row] = malloc(sizeof(double) * num_cols);
+    }
+    // double* E = malloc(sizeof(double) * (num_rows * num_cols));
 
     // alloc mem for seam_path array
     // int* seam_path = malloc(sizeof(int) * num_rows);
