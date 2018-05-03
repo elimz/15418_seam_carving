@@ -16,15 +16,22 @@
 
 #include "seam.h"
 
-#ifndef TIMING 
-#define TIMING 1
-#endif
+
 
 #define MAX_ENERGY 9999999
 #define NUM_SEAMS_TO_REMOVE 300
 
 #ifndef OMP
 #define OMP 1
+#endif
+
+// For Timing
+#ifndef BLOCK_ASSIGN 
+#define BLOCK_ASSIGN 1
+#endif
+
+#ifndef TIMING 
+#define TIMING 1
 #endif
 
 // debug - batch write for compute_E; 
@@ -219,7 +226,7 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
     int store_start_idx;              // starting index of the 8 numbers
 
     // find my thread id, and work region
-    #if OMP
+    #if OMP && BLOCK_ASSIGN
     int my_tid = omp_get_thread_num();
     int my_start = start_pos_partition(num_cols, nthread, my_tid);
     int my_end; 
@@ -232,7 +239,6 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
         // #endif
             // New partition: block assignment, break down the task by total num_cols / nthread;
             #if OMP && BATCH
-                
                 // TODO - could improve next step by using an array and only compute once  
                 if (my_tid == nthread - 1){
                     my_end = num_cols;
@@ -251,35 +257,37 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                                                image_pixel_array[i][j],
                                                image_pixel_array[i][j + 1]);
                     }
-                if (temp_counter == 0){
-                    store_start_idx = i * num_cols + j; 
-                }
-                // store thigns at location rep by current counter;
-                // temp_array[temp_counter] = current_val;
-                temp_counter ++; 
-                if (temp_counter == 8){
-                    // flush to memory; 
-                    int offset; 
-                    for (offset = 0; offset < 8; offset ++){
-                        E[offset + store_start_idx] = temp_array[offset];
+
+                    if (temp_counter == 0){
+                        store_start_idx = i * num_cols + j; 
                     }
-                    // reset counter ;
-                    temp_counter = 0;
+                    // store thigns at location rep by current counter;
+                    // temp_array[temp_counter] = current_val;
+                    temp_counter ++; 
+                    if (temp_counter == 8){
+                        // flush to memory; 
+                        int offset; 
+                        for (offset = 0; offset < 8; offset ++){
+                            E[offset + store_start_idx] = temp_array[offset];
+                        }
+                        // reset counter ;
+                        temp_counter = 0;
+                    }
                 }
             #else 
                 for (j = 0; j < num_cols; j++) {
-                // don't want to remove the edges
-                if (i == num_rows - 1 || j == num_cols - 1) {
-                    // temp_array[temp_counter] = MAX_ENERGY;
-                    E[i * num_cols + j] = MAX_ENERGY;
-                } else {
-                    E[i * num_cols + j] = pixel_difference(image_pixel_array[i][j],
-                                           image_pixel_array[i + 1][j],
-                                           image_pixel_array[i][j],
-                                           image_pixel_array[i][j + 1]);
+                    // don't want to remove the edges
+                    if (i == num_rows - 1 || j == num_cols - 1) {
+                        // temp_array[temp_counter] = MAX_ENERGY;
+                        E[i * num_cols + j] = MAX_ENERGY;
+                    } else {
+                        E[i * num_cols + j] = pixel_difference(image_pixel_array[i][j],
+                                               image_pixel_array[i + 1][j],
+                                               image_pixel_array[i][j],
+                                               image_pixel_array[i][j + 1]);
+                    }
                 }
             #endif    
-            } 
     }
     // // debug: print out gradient file;
     // char* output_file = "gradient.ppm";
