@@ -1,4 +1,9 @@
 
+
+// seam.c on seq_1D branch, inside week1_para folder 
+// with omp parallel code, and timing code
+
+
 // seam carving application in parallel
 // steps: 
 // 1. command line, convert jpg/png format into ppm; 
@@ -20,10 +25,6 @@
 
 #define MAX_ENERGY 9999999
 #define NUM_SEAMS_TO_REMOVE 300
-
-#ifndef OMP
-#define OMP 1
-#endif
 
 // For Timing
 #ifndef BLOCK_ASSIGN 

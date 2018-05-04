@@ -1,15 +1,9 @@
 
-// seam carving application in parallel
-// steps: 
-// 1. command line, convert jpg/png format into ppm; 
-//  "convert source.png -compress none dest.ppm" // require imageMagick
+// seam.c on seq_1D branch; 
+// with the most up-to-date algorithm from branch week 3
+// now adding timing, and omp parallel
 
 
-// TODO next: 
-// - measure timing; 
-// - use valgrind to measaure memory allocated, before and after changing to a 
-//  1D array; 
-// - handle image input and output naming inside main function
 #include "seam.h"
 
 #define MAX_ENERGY 9999999.0
