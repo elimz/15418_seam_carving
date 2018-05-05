@@ -252,13 +252,13 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
     #if OMP
         int i, j, my_tid;
         for (i = 0; i < num_rows; i++) {
+            double temp_array[8];
+            int temp_counter;
             // New partition: block assignment, break down the task by total num_cols / nthread;
-            #pragma omp parallel num_threads(nthread) shared (i) private (j, my_tid) 
+            #pragma omp parallel num_threads(nthread) shared (i) private (j, my_tid, temp_array, temp_counter) 
             {
                 my_tid = omp_get_thread_num();
-                double current_val;
-                double temp_array[8];       // store 8 numbers
-                int temp_counter = 0;       // 8 number counter; 
+                temp_counter = 0;
                 int store_start_idx;              // starting index of the 8 numbers
                 
                 int my_start = start_pos_partition(num_cols, nthread, my_tid);
@@ -289,7 +289,7 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                         for (offset = 0; offset < 8; offset ++){
                             E[offset + store_start_idx] = temp_array[offset];
                         }
-                        // reset counter ;
+                        // reset counter;
                         temp_counter = 0;
                     }
                 }
