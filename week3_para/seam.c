@@ -16,18 +16,12 @@
 #define NUM_SEAMS_TO_REMOVE 300
 // #define NUM_SEAMS_TO_TRY 20
 
-#ifndef OMP  
-#define OMP 1
-#endif
+// #ifndef OMP  
+// #define OMP 1
+// #endif
 
 #ifndef TIMING 
 #define TIMING 1
-#endif
-
-
-// debug - batch write for compute_E; 
-#ifndef BATCH 
-#define BATCH 1
 #endif
 
 #ifndef BLOCK_ASSIGN 
@@ -50,13 +44,8 @@ int main(){
     pixel_t** image_pixel_array = build_matrix(&num_rows, &num_cols, &max_px_val, input_file);
     original_cols = num_cols;
 
-    // alloc for E array
+    // alloc for E array - 1D
     int row; 
-    // double** E = malloc(sizeof(double*) * num_rows);
-    // for (row = 0; row < num_rows; row++) {
-    //     E[row] = malloc(sizeof(double) * num_cols);
-    // }
-    // 1D array for E
     double* E = malloc(sizeof(double) * (num_rows * num_cols));
 
     // num seams to try in each iteration
@@ -78,12 +67,18 @@ int main(){
 
     srand((unsigned) time(&t));
 
-    // timing different sections
+    // array of timing data for different sections
     #if TIMING
     double start = currentSeconds();
-    double timing[1] = {0.0};
-    #define T_COMP_E        0       // after malloc
+    double timing[2] = {0.0, 0.0};
+    #define T_COMP_E            0       // compute energy map
+    #define T_FIND_SEAM         1       // find seam
     #endif
+
+    #if OMP 
+        omp_set_num_threads(nthread);
+    #endif
+
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
@@ -92,31 +87,61 @@ int main(){
         #if TIMING
         double t_start_E = currentSeconds();
         #endif
+
         compute_E(image_pixel_array, E, num_rows, num_cols);
-        // printf("Finished computing E\n");
+        
         #if TIMING
         double t_end_E = currentSeconds();
         timing[T_COMP_E] += (t_end_E - t_start_E);
         #endif
 
-        // popular indicies to try with random starting pixels
+        // randomly select NUM_SEAMS_TO_TRY number of seams, find their energy, 
+        //  and remove the seam with lowest energy
         int idx;
         for (idx = 0; idx < NUM_SEAMS_TO_TRY; idx++) {
             first_row_indices[idx] = rand() % (num_cols - 1);
         }
 
-
+        // New: each thread keeps a copy of the smallest cost path, and use omp 
+        // reduce to find the smallest of all
+        // int start_pos_partition (int N, int P, int i)
         int trial_num;
         double smallest_cost_path = INT_MAX * 1.0;
         int smallest_cost_index = -1;
-        for (trial_num = 0; trial_num < NUM_SEAMS_TO_TRY; trial_num++) {
-            seam_paths[trial_num][0] = first_row_indices[trial_num];
-            double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
-            if (path_cost < smallest_cost_path) {
-                smallest_cost_index = trial_num;
+
+        // #if !OMP 
+        //     // each thread keeps a copy of the smallest cost path, and use omp
+        //     // reduce to find the smallest of all
+        //     // #pragma omp parallel {
+        //         int my_tid = omp_get_thread_num();
+        //         int start_num = start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid);
+        //         int end_num = (my_tid == nthread - 1)? NUM_SEAMS_TO_TRY : start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid + 1);
+        //         printf("-------- tid = %d, start = %d, end = %d\n");
+
+        //         for (trial_num = start_num; trial_num < end_num; trial_num ++){
+        //             seam_paths[trial_num][0] = first_row_indices[trial_num];
+        //             double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
+        //             if (path_cost < smallest_cost_path) {
+        //                 smallest_cost_index = trial_num;
+        //             }
+        //         }
+        //     // }
+        // #else
+            // non-OMP version, 1 thread calculates all of the seams;
+            for (trial_num = 0; trial_num < NUM_SEAMS_TO_TRY; trial_num++) {
+                seam_paths[trial_num][0] = first_row_indices[trial_num];
+                double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
+                if (path_cost < smallest_cost_path) {
+                    smallest_cost_index = trial_num;
+                }
             }
-            // printf("Finished trying seam %d\n", trial_num);
-        }
+        // #endif
+
+
+        #if TIMING
+        double t_end_seam = currentSeconds();
+        timing[T_FIND_SEAM] += (t_end_seam - t_end_E);
+        #endif
 
         // color the seam and output the image
         // color_seam(&image_pixel_array, seam_paths[smallest_cost_index], num_rows, num_cols, max_px_val, seam_file);
@@ -133,7 +158,7 @@ int main(){
 
     #if TIMING
     printf("------ TIMING SPLITS ------\n");
-    printf("    T_COMP_E = %f\n ", timing[T_COMP_E]);
+    printf("    T_COMP_E = %f\n    T_FIND_SEAM = %f\n ", timing[T_COMP_E], timing[T_FIND_SEAM]);
     #endif
 
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
@@ -223,59 +248,56 @@ int start_pos_partition (int N, int P, int i){
 
 // takes in an image, and return an energy map calculated by gradient magnitude
 void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
-    // TODO: flatten the array; need to work on indexing; 
-    double current_val;
-    double temp_array[8];       // store 8 numbers
-    int temp_counter = 0;       // 8 number counter; 
-    int store_start_idx;              // starting index of the 8 numbers
-
     // find my thread id, and work region
-    #if OMP && BLOCK_ASSIGN
-    int my_tid = omp_get_thread_num();
-    int my_start = start_pos_partition(num_cols, nthread, my_tid);
-    int my_end; 
-    #endif
+    #if OMP
+        int i, j, my_tid;
+        for (i = 0; i < num_rows; i++) {
+            // New partition: block assignment, break down the task by total num_cols / nthread;
+            #pragma omp parallel num_threads(nthread) shared (i) private (j, my_tid) 
+            {
+                my_tid = omp_get_thread_num();
+                double current_val;
+                double temp_array[8];       // store 8 numbers
+                int temp_counter = 0;       // 8 number counter; 
+                int store_start_idx;              // starting index of the 8 numbers
+                
+                int my_start = start_pos_partition(num_cols, nthread, my_tid);
+                int my_end = (my_tid == nthread - 1)? num_cols: start_pos_partition(num_cols, nthread, my_tid + 1);
+                // printf(" compute_E - my tid = %d, start = %d, end = %d\n",  my_tid, my_start, my_end);
 
-    int i, j;
-    for (i = 0; i < num_rows; i++) {
-        // New partition: block assignment, break down the task by total num_cols / nthread;
-        #if OMP && BATCH
-            // TODO - could improve next step by using an array and only compute once  
-            if (my_tid == nthread - 1){
-                my_end = num_cols;
-            } else {
-                // otherwise, my end is the start of next thread;
-                my_end = start_pos_partition(num_cols, nthread, my_tid + 1);
-            }
-
-            for (j = my_start; j < my_end; j++) {
-                // don't want to remove the edges
-                if (i == num_rows - 1 || j == num_cols - 1) {
-                    temp_array[temp_counter] = MAX_ENERGY;
-                } else {
-                    temp_array[temp_counter] = pixel_difference(image_pixel_array[i][j],
-                                           image_pixel_array[i + 1][j],
-                                           image_pixel_array[i][j],
-                                           image_pixel_array[i][j + 1]);
-                }
-
-                if (temp_counter == 0){
-                    store_start_idx = i * num_cols + j; 
-                }
-                // store thigns at location rep by current counter;
-                // temp_array[temp_counter] = current_val;
-                temp_counter ++; 
-                if (temp_counter == 8){
-                    // flush to memory; 
-                    int offset; 
-                    for (offset = 0; offset < 8; offset ++){
-                        E[offset + store_start_idx] = temp_array[offset];
+                assert((my_start < my_end) && (my_start >= 0));
+                for (j = my_start; j < my_end; j++) {
+                    // don't want to remove the edge
+                    assert(temp_counter >= 0 && temp_counter <= 7);
+                    if (i == num_rows - 1 || j == num_cols - 1) {
+                        temp_array[temp_counter] = MAX_ENERGY;
+                    } else {
+                        temp_array[temp_counter] = pixel_difference(image_pixel_array[i][j],
+                                               image_pixel_array[i + 1][j],
+                                               image_pixel_array[i][j],
+                                               image_pixel_array[i][j + 1]);
                     }
-                    // reset counter ;
-                    temp_counter = 0;
+
+                    if (temp_counter == 0){
+                        store_start_idx = i * num_cols + j; 
+                    }
+                    // store thigns at location rep by current counter;
+                    temp_counter ++; 
+                    if (temp_counter == 8){
+                        // flush to memory; 
+                        int offset; 
+                        for (offset = 0; offset < 8; offset ++){
+                            E[offset + store_start_idx] = temp_array[offset];
+                        }
+                        // reset counter ;
+                        temp_counter = 0;
+                    }
                 }
             }
-        #else 
+        }
+    #else 
+        int i, j; 
+        for (i = 0; i < num_rows; i++) {
             for (j = 0; j < num_cols; j++) {
                 // don't want to remove the edges
                 if (i == num_rows - 1 || j == num_cols - 1) {
@@ -288,9 +310,10 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                                            image_pixel_array[i][j + 1]);
                 }
             }
-        #endif    
-    }
+        }
+    #endif
 }
+
 
 
 
@@ -322,7 +345,7 @@ double find_seam(double* E, int* seam_path, int num_rows, int num_cols) {
             // right = E[i][prev_col + 1];
             right = E[i * num_cols + (prev_col + 1)];
         }
-
+        // record which of the 3 neighbors should be part of the seam
         double current_min_cost = fmin(middle, fmin(left, right));
         if (current_min_cost == middle) {
             seam_path[i] = prev_col;

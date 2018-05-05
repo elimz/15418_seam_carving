@@ -8,6 +8,10 @@
 #include <omp.h>
 #include "cycletimer.h"
 
+// debug 
+#include <assert.h>
+
+
 #ifndef OMP
 #define OMP 0
 #endif
