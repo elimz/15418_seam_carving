@@ -79,7 +79,6 @@ int main(){
         omp_set_num_threads(nthread);
     #endif
 
-
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
 
@@ -102,8 +101,6 @@ int main(){
             first_row_indices[idx] = rand() % (num_cols - 1);
         }
 
-
-
         int trial_num;
         double smallest_cost_path = INT_MAX * 1.0;
         int smallest_cost_index = -1;
@@ -111,17 +108,8 @@ int main(){
         #if OMP 
             #pragma omp parallel shared(smallest_cost_path, smallest_cost_index)
             {
-                #pragma omp for
-                for (trial_num = 0; trial_num < NUM_SEAMS_TO_TRY; trial_num++) {
-                    seam_paths[trial_num][0] = first_row_indices[trial_num];
-                    double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
-                    if (path_cost < smallest_cost_path) {
-                        smallest_cost_index = trial_num;
-                    }
-                }
-            }
-        #else
-            // non-OMP version, 1 thread calculates all of the seams;
+            #pragma omp for
+        #endif
             for (trial_num = 0; trial_num < NUM_SEAMS_TO_TRY; trial_num++) {
                 seam_paths[trial_num][0] = first_row_indices[trial_num];
                 double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
@@ -129,6 +117,9 @@ int main(){
                     smallest_cost_index = trial_num;
                 }
             }
+
+        #if OMP
+            }             
         #endif
 
 
@@ -157,7 +148,7 @@ int main(){
     #endif
 
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
-    
+
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_TRY; seam_num++) {
         free(seam_paths[seam_num]);
     }
@@ -202,39 +193,6 @@ int start_pos_partition (int N, int P, int i){
     else
         return i * base + extra;
 }
-
-// // takes in an image, and return an energy map calculated by gradient magnitude
-// void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_cols) {
-//     // debug: 
-//     // int max_pix_val = 255; 
-//     // int min_pix_val = 0;
-
-//     int i;
-//     for (i = 0; i < num_rows; i++) {
-//         int j;
-//         for (j = 0; j < num_cols; j++) {
-//             // don't want to remove the edges
-//             if (i == num_rows - 1 || j == num_cols - 1) {
-//                 E[i][j] = MAX_ENERGY;
-//             } else {
-//                 E[i][j] = pixel_difference(image_pixel_array[i][j],
-//                                            image_pixel_array[i + 1][j],
-//                                            image_pixel_array[i][j],
-//                                            image_pixel_array[i][j + 1]);
-//             }
-//             // debug 
-//             // if (E[i][j] > max_pix_val){
-//             //     max_pix_val = E[i][j];    
-//             // } if (E[i][j] < min_pix_val){
-//             //     min_pix_val = E[i][j];
-//             // } 
-//         }
-//     }
-
-//     // // debug: print out gradient file;
-//     // char* output_file1 = "gradient.ppm";
-//     // intermediary_img(E, output_file1,  num_rows, num_cols, max_pix_val, min_pix_val);
-// }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
 void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
@@ -350,12 +308,6 @@ double find_seam(double* E, int* seam_path, int num_rows, int num_cols) {
 
     return sum;
 
-    // for (i = 0; i < num_rows; i++) {
-    //     if (seam_path[i] < 0) {
-    //         printf("seam index: %d with value %d\n", i, seam_path[i]);
-    //     }
-    // }
-    // printf("\n\n");
 }
 
 // colors the seam pixels red and outputs the image
@@ -437,10 +389,6 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     // image is represented by a list of structs, each struct has R, G, B field 
     int image_size = num_cols * num_rows; 
     
-    // --------------------------------TODO: allocating a 1D array; --------------------------------
-    // pixel_t *matrix = (pixel_t *)malloc(sizeof(pixel_t) * num_cols * num_rows); 
-    // --------------------------------TODO: allocating a 1D array; --------------------------------
-
     // allocate a 2D array for the pixel matrix 
     pixel_t **matrix = (pixel_t **) malloc(sizeof(pixel_t *) * num_rows);
     if (matrix == NULL){
@@ -487,7 +435,6 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     }
 
     // allowing other funcitons to access matrix: 
-    // *mx = matrix;
     fclose(ppm_file);
     printf("Finished - convert input image into matrix\n");
     return matrix;
@@ -561,19 +508,15 @@ void intermediary_img(double** matrix, char* output_file,
             if (int_curr_value <  0 ){
                 int_curr_value = 0;
             }
-
-
+            
             if (col > 0){
                 fprintf(fp, " ");   // appending space to later items
             }
-
             fprintf(fp, "%d %d %d", int_curr_value, int_curr_value, int_curr_value);
-            // fprintf(fp, "%d", int_curr_value);
             // last item appends a new line at the end;
             if (col == num_cols - 1){
                 fprintf(fp, "\n");
             }
-            // printf("%lf\n", curr_value);
         }
     }
     printf("Finished - writing intermediary image to output.\n");
