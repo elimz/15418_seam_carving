@@ -105,37 +105,58 @@ int main(){
         // New: each thread keeps a copy of the smallest cost path, and use omp 
         // reduce to find the smallest of all
         // int start_pos_partition (int N, int P, int i)
-        int trial_num;
         double smallest_cost_path = INT_MAX * 1.0;
         int smallest_cost_index = -1;
 
-        // #if !OMP 
-        //     // each thread keeps a copy of the smallest cost path, and use omp
-        //     // reduce to find the smallest of all
-        //     // #pragma omp parallel {
-        //         int my_tid = omp_get_thread_num();
-        //         int start_num = start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid);
-        //         int end_num = (my_tid == nthread - 1)? NUM_SEAMS_TO_TRY : start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid + 1);
-        //         printf("-------- tid = %d, start = %d, end = %d\n");
+        #if OMP 
+            // // each thread keeps a copy of the smallest cost path, and use omp
+            // // reduce to find the smallest of all
+            // int my_tid, start_num, end_num;
+            // int trial_index; 
+            // #pragma omp parallel num_threads(nthread) private (my_tid, start_num, end_num, trial_index) 
+            // {
+            //     my_tid = omp_get_thread_num();
+            //     start_num = start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid);
+            //     end_num = (my_tid == nthread - 1)? 
+            //             NUM_SEAMS_TO_TRY : 
+            //             start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid + 1);
+            //     printf("-------- tid = %d, start = %d, end = %d\n", my_tid, start_num, end_num);
 
-        //         for (trial_num = start_num; trial_num < end_num; trial_num ++){
-        //             seam_paths[trial_num][0] = first_row_indices[trial_num];
-        //             double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
-        //             if (path_cost < smallest_cost_path) {
-        //                 smallest_cost_index = trial_num;
-        //             }
-        //         }
-        //     // }
-        // #else
-            // non-OMP version, 1 thread calculates all of the seams;
-            for (trial_num = 0; trial_num < NUM_SEAMS_TO_TRY; trial_num++) {
-                seam_paths[trial_num][0] = first_row_indices[trial_num];
-                double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
-                if (path_cost < smallest_cost_path) {
-                    smallest_cost_index = trial_num;
+            //     for (trial_index = start_num; trial_index < end_num; trial_index ++){
+            //         seam_paths[trial_index][0] = first_row_indices[trial_index];
+            //         double path_cost = find_seam(E, seam_paths[trial_index], num_rows, num_cols);
+            //         if (path_cost < smallest_cost_path) {
+            //             smallest_cost_index = trial_index;
+            //         }
+            //     }
+            // }
+
+            int trial_index;
+            // non-OMP version, 1 trial_index calculates all of the seams;
+            #pragma omp parallel for reduction (min : smallest_cost_path) num_threads (nthread) private (trial_index)
+            {
+                for (trial_index = 0; trial_index < NUM_SEAMS_TO_TRY; trial_index++) {
+                    seam_paths[trial_index][0] = first_row_indices[trial_index];
+                    double path_cost = find_seam(E, seam_paths[trial_index], num_rows, num_cols);
+                    if (path_cost < smallest_cost_path) {
+                        smallest_cost_index = trial_index;
+                    }
+                    printf("\n OMP -  min trial_index = %d, min_cost = %d\n", trial_index, smallest_cost_path);
                 }
             }
-        // #endif
+        #else
+            int trial_index;
+            // non-OMP version, 1 trial_index calculates all of the seams;
+            for (trial_index = 0; trial_index < NUM_SEAMS_TO_TRY; trial_index++) {
+                seam_paths[trial_index][0] = first_row_indices[trial_index];
+                double path_cost = find_seam(E, seam_paths[trial_index], num_rows, num_cols);
+                if (path_cost < smallest_cost_path) {
+                    smallest_cost_index = trial_index;
+                    
+                }
+            }
+            printf("\n min trial_index = %d, min_cost = %lf\n", trial_index, smallest_cost_path);
+        #endif
 
 
         #if TIMING
@@ -162,11 +183,6 @@ int main(){
     #endif
 
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
-    
-    // free data structures 
-    // for (row = 0; row < num_rows; row++) {
-    //     free(E[row]);
-    // }
 
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_TRY; seam_num++) {
         free(seam_paths[seam_num]);
@@ -212,39 +228,6 @@ int start_pos_partition (int N, int P, int i){
     else
         return i * base + extra;
 }
-
-// // takes in an image, and return an energy map calculated by gradient magnitude
-// void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_cols) {
-//     // debug: 
-//     // int max_pix_val = 255; 
-//     // int min_pix_val = 0;
-
-//     int i;
-//     for (i = 0; i < num_rows; i++) {
-//         int j;
-//         for (j = 0; j < num_cols; j++) {
-//             // don't want to remove the edges
-//             if (i == num_rows - 1 || j == num_cols - 1) {
-//                 E[i][j] = MAX_ENERGY;
-//             } else {
-//                 E[i][j] = pixel_difference(image_pixel_array[i][j],
-//                                            image_pixel_array[i + 1][j],
-//                                            image_pixel_array[i][j],
-//                                            image_pixel_array[i][j + 1]);
-//             }
-//             // debug 
-//             // if (E[i][j] > max_pix_val){
-//             //     max_pix_val = E[i][j];    
-//             // } if (E[i][j] < min_pix_val){
-//             //     min_pix_val = E[i][j];
-//             // } 
-//         }
-//     }
-
-//     // // debug: print out gradient file;
-//     // char* output_file1 = "gradient.ppm";
-//     // intermediary_img(E, output_file1,  num_rows, num_cols, max_pix_val, min_pix_val);
-// }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
 void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
@@ -361,12 +344,6 @@ double find_seam(double* E, int* seam_path, int num_rows, int num_cols) {
 
     return sum;
 
-    // for (i = 0; i < num_rows; i++) {
-    //     if (seam_path[i] < 0) {
-    //         printf("seam index: %d with value %d\n", i, seam_path[i]);
-    //     }
-    // }
-    // printf("\n\n");
 }
 
 // colors the seam pixels red and outputs the image
