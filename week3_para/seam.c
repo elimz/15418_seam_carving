@@ -33,9 +33,19 @@ char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
 // number of threads
-int nthread = 8;
-
+// int nthread = 8;
 int main(){
+    
+    int nthread = 17;
+
+    int num_thread;
+    for (num_thread = 1; num_thread < nthread; num_thread ++){
+        main_support(num_thread);
+    }
+    return 1;
+}
+
+int main_support(int nthread){
 
     int num_rows, num_cols, original_cols, max_px_val;
     time_t t;
@@ -87,7 +97,7 @@ int main(){
         double t_start_E = currentSeconds();
         #endif
 
-        compute_E(image_pixel_array, E, num_rows, num_cols);
+        compute_E(image_pixel_array, E, num_rows, num_cols, nthread);
         
         #if TIMING
         double t_end_E = currentSeconds();
@@ -133,18 +143,17 @@ int main(){
         // printf("Finished coloring seam\n");
         
         // remove the seam from the image, also sets new values for num_rows and num_cols
-        // printf("smallest_cost_index: %d\n", smallest_cost_index);
         remove_seam(&image_pixel_array, seam_paths[smallest_cost_index], &num_rows, &num_cols);
-        // printf("Finished removing seam\n");
     }
 
 
     double delta = currentSeconds() - start;
-    printf("%d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
+    // printf("%d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
+    printf("    %d threads - %.3f seconds; compute_E= %.3f, find_seam = %.3f\n", nthread, delta, timing[T_COMP_E], timing[T_FIND_SEAM]);
 
     #if TIMING
-    printf("------ TIMING SPLITS ------\n");
-    printf("    T_COMP_E = %f\n    T_FIND_SEAM = %f\n ", timing[T_COMP_E], timing[T_FIND_SEAM]);
+    // printf("------ TIMING SPLITS ------\n");
+    // printf("    T_COMP_E = %f\n    T_FIND_SEAM = %f\n ", timing[T_COMP_E], timing[T_FIND_SEAM]);
     #endif
 
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
@@ -160,7 +169,7 @@ int main(){
     free(E);
     free(seam_paths);
     free(image_pixel_array);
-    printf("Finished - Image Processing Finished! \n");
+    // printf("Finished - Image Processing Finished! \n");
     return 0;
 }  
 
@@ -195,7 +204,8 @@ int start_pos_partition (int N, int P, int i){
 }
 
 // takes in an image, and return an energy map calculated by gradient magnitude
-void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
+// void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
+void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols, int nthread) {
     // find my thread id, and work region
     #if OMP
         int i, j, my_tid;
@@ -211,12 +221,10 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                 
                 int my_start = start_pos_partition(num_cols, nthread, my_tid);
                 int my_end = (my_tid == nthread - 1)? num_cols: start_pos_partition(num_cols, nthread, my_tid + 1);
-                // printf(" compute_E - my tid = %d, start = %d, end = %d\n",  my_tid, my_start, my_end);
+                // printf(" compute_E - my tid = %d, chunk_szie = %d\n",  my_tid, my_end - my_start);
 
-                assert((my_start < my_end) && (my_start >= 0));
                 for (j = my_start; j < my_end; j++) {
                     // don't want to remove the edge
-                    assert(temp_counter >= 0 && temp_counter <= 7);
                     if (i == num_rows - 1 || j == num_cols - 1) {
                         temp_array[temp_counter] = MAX_ENERGY;
                     } else {
@@ -229,8 +237,9 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                     if (temp_counter == 0){
                         store_start_idx = i * num_cols + j; 
                     }
-                    // store thigns at location rep by current counter;
+                    // store things at location rep by current counter;
                     temp_counter ++; 
+
                     if (temp_counter == 8){
                         // flush to memory; 
                         int offset; 
@@ -239,6 +248,17 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                         }
                         // reset counter;
                         temp_counter = 0;
+                    }
+
+                    // edge case: last chunk has size < 8; 
+                    if (j == my_end - 1) {
+                        // store everything left: 
+                        int chunk_left = (my_end - my_start) % 8;
+                        int offset; 
+                        for (offset = 0; offset < chunk_left; offset ++){
+                            E[offset + store_start_idx] = temp_array[offset];
+                        }
+                        // temp_counter = 0;
                     }
                 }
             }
@@ -381,7 +401,7 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     *max_px = max_px_val;
 
 
-    printf("Reading in image with size (%d, %d), max pixel value = %d\n", \
+    // printf("Reading in image with size (%d, %d), max pixel value = %d\n", \
         num_cols, num_rows, max_px_val);
 
 
@@ -436,7 +456,7 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
 
     // allowing other funcitons to access matrix: 
     fclose(ppm_file);
-    printf("Finished - convert input image into matrix\n");
+    // printf("Finished - convert input image into matrix\n");
     return matrix;
 } 
 
@@ -472,7 +492,7 @@ void output_image(pixel_t** matrix, char* output_file,  int num_rows, int num_co
             }
         }
     }
-    printf("Finished - writing image to output.\n");
+    // printf("Finished - writing image to output.\n");
 }
 
 void intermediary_img(double** matrix, char* output_file,
