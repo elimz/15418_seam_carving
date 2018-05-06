@@ -96,37 +96,31 @@ int main(){
         #endif
 
         // randomly select NUM_SEAMS_TO_TRY number of seams, find their energy, 
-        //  and remove the seam with lowest energy
+        // and remove the seam with lowest energy
         int idx;
         for (idx = 0; idx < NUM_SEAMS_TO_TRY; idx++) {
             first_row_indices[idx] = rand() % (num_cols - 1);
         }
 
-        // New: each thread keeps a copy of the smallest cost path, and use omp 
-        // reduce to find the smallest of all
-        // int start_pos_partition (int N, int P, int i)
+
+
         int trial_num;
         double smallest_cost_path = INT_MAX * 1.0;
         int smallest_cost_index = -1;
 
-        // #if !OMP 
-        //     // each thread keeps a copy of the smallest cost path, and use omp
-        //     // reduce to find the smallest of all
-        //     // #pragma omp parallel {
-        //         int my_tid = omp_get_thread_num();
-        //         int start_num = start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid);
-        //         int end_num = (my_tid == nthread - 1)? NUM_SEAMS_TO_TRY : start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid + 1);
-        //         printf("-------- tid = %d, start = %d, end = %d\n");
-
-        //         for (trial_num = start_num; trial_num < end_num; trial_num ++){
-        //             seam_paths[trial_num][0] = first_row_indices[trial_num];
-        //             double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
-        //             if (path_cost < smallest_cost_path) {
-        //                 smallest_cost_index = trial_num;
-        //             }
-        //         }
-        //     // }
-        // #else
+        #if OMP 
+            #pragma omp parallel shared(smallest_cost_path, smallest_cost_index)
+            {
+                #pragma omp for
+                for (trial_num = 0; trial_num < NUM_SEAMS_TO_TRY; trial_num++) {
+                    seam_paths[trial_num][0] = first_row_indices[trial_num];
+                    double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
+                    if (path_cost < smallest_cost_path) {
+                        smallest_cost_index = trial_num;
+                    }
+                }
+            }
+        #else
             // non-OMP version, 1 thread calculates all of the seams;
             for (trial_num = 0; trial_num < NUM_SEAMS_TO_TRY; trial_num++) {
                 seam_paths[trial_num][0] = first_row_indices[trial_num];
@@ -135,7 +129,7 @@ int main(){
                     smallest_cost_index = trial_num;
                 }
             }
-        // #endif
+        #endif
 
 
         #if TIMING
@@ -148,6 +142,7 @@ int main(){
         // printf("Finished coloring seam\n");
         
         // remove the seam from the image, also sets new values for num_rows and num_cols
+        // printf("smallest_cost_index: %d\n", smallest_cost_index);
         remove_seam(&image_pixel_array, seam_paths[smallest_cost_index], &num_rows, &num_cols);
         // printf("Finished removing seam\n");
     }
@@ -163,11 +158,6 @@ int main(){
 
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
     
-    // free data structures 
-    // for (row = 0; row < num_rows; row++) {
-    //     free(E[row]);
-    // }
-
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_TRY; seam_num++) {
         free(seam_paths[seam_num]);
     }
@@ -324,7 +314,6 @@ double find_seam(double* E, int* seam_path, int num_rows, int num_cols) {
     // traverse downwards and greedily pick the least energy cost neighbor
 
     int i;
-    // double sum = E[0][seam_path[0]];
     double sum = E[seam_path[0]];
     for (i = 1; i < num_rows; i++) {
         int prev_col = seam_path[i - 1];
