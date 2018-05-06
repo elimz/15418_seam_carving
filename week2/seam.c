@@ -1,27 +1,27 @@
 
 // seam carving application in parallel
-// steps:
-// 1. command line, convert jpg/png format into ppm;
+// steps: 
+// 1. command line, convert jpg/png format into ppm; 
 //  "convert source.png -compress none dest.ppm" // require imageMagick
 
 
-// TODO next:
-// - measure timing;
-// - use valgrind to measaure memory allocated, before and after changing to a 1D array;
+// TODO next: 
+// - measure timing; 
+// - use valgrind to measaure memory allocated, before and after changing to a 1D array; 
 // - handle image input and output naming inside main function
 // Stretch goal:
-// - different data structure to store RGB info.
-//      instead of storing all of (RGB) in one huge matrix, separate into 3 matrices;
-//      this might benefit parallelizing later
+// - different data structure to store RGB info. 
+//      instead of storing all of (RGB) in one huge matrix, separate into 3 matrices; 
+//      this might benefit parallelizing later 
 
 #include "seam.h"
 
-#ifndef TIMING
+#ifndef TIMING 
 #define TIMING 1
 #endif
 
 #ifndef INFO_ON         // info on how much we have finished
-#define INFO_ON 0
+#define INFO_ON 0 
 #endif
 
 #define MAX_ENERGY 9999999
@@ -31,13 +31,13 @@ char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
-// // TODO:
+// // TODO: 
 // int nthread = 1;
 
 // TEMP - timer ode, time 32 iterations
 int main(){
     int nthread;
-    for (nthread = 0; nthread < 1; nthread ++){
+    for (nthread = 1; nthread < 32; nthread ++){
         main_support(nthread);
     }
     printf("++++++++++ DONE ++++++++++ \n");
@@ -51,14 +51,13 @@ int main_support(int nthread){
     double t0 = currentSeconds();
     #endif
 
-    int num_rows, num_cols, original_cols, max_px_val;
-    // TODO: pass in file paths into all the functions
+    int num_rows, num_cols, max_px_val;
+    // TODO: pass in file paths into all the functions 
     // char *file_path = "./images/tower.ppm";
     // pass in pointers for image array pointer, width, height
     pixel_t** image_pixel_array = build_matrix(&num_rows, &num_cols, &max_px_val, input_file);
-    original_cols = num_cols;
     // alloc for E array
-    int row;
+    int row; 
     double** E = malloc(sizeof(double*) * num_rows);
     for (row = 0; row < num_rows; row++) {
         E[row] = malloc(sizeof(double) * num_cols);
@@ -76,13 +75,13 @@ int main_support(int nthread){
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     #if TIMING
-    double c_time_malloc = currentSeconds();
+    double c_time_malloc = currentSeconds(); 
     double t_malloc = c_time_malloc - t0;
     #endif
 
     int seam_num;
 
-    // timer array for different sections
+    // timer array for different sections 
     #if TIMING
     double timing[4] = {0.0, 0.0, 0.0, 0.0 };
     #define T_COMP_E        0
@@ -97,7 +96,7 @@ int main_support(int nthread){
         omp_set_num_threads(nthread);
     #endif
 
-    double t_start_E, t_start_M, t_start_f_seam, t_start_rm_seam;
+    double t_start_E, t_start_M, t_start_f_seam, t_start_rm_seam; 
     double t_loop_start;
 
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
@@ -120,7 +119,7 @@ int main_support(int nthread){
         double t_compute_M = t_start_M - t_start_E;
         timing[T_COMP_M] += t_compute_M;
         #endif
-
+        
         // find seam to remove
         find_seam(M, seam_path, num_rows, num_cols);
         // printf("Finished finding seam\n");
@@ -129,7 +128,7 @@ int main_support(int nthread){
         double t_find_seam = t_start_f_seam - t_start_M;
         timing[T_FIND_SEAM] += t_find_seam;
         #endif
-
+        
         // // color the seam and output the image
         // color_seam(&image_pixel_array, M, seam_path, num_rows, num_cols, max_px_val, seam_file);
         // printf("Finished coloring seam\n");
@@ -146,7 +145,6 @@ int main_support(int nthread){
 
     #if TIMING
     double delta = currentSeconds() - start;
-    // printf("------  TIMING ------ %d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
     printf("final time w threads: %d, %.3f\n", nthread, delta);
     #endif
 
@@ -168,8 +166,8 @@ int main_support(int nthread){
     // output image;        TODO: change file name to match file input name
     // char* out_file_name = "tower_out.ppm";
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
-
-    // free data structures
+    
+    // free data structures 
     for (row = 0; row < num_rows; row++) {
         free(E[row]);
     }
@@ -188,10 +186,10 @@ int main_support(int nthread){
     free(image_pixel_array);
     #if INFO_ON
     printf("Finished - Image Processing Finished! \n");
-    #endif
+    #endif 
 
     return 0;
-}
+}  
 
 double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     // find partial derivative for x
@@ -212,8 +210,8 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
 
 // takes in an image, and return an energy map calculated by gradient magnitude
 void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_cols) {
-    // debug:
-    // int max_pix_val = 0;
+    // debug: 
+    // int max_pix_val = 0; 
     // int min_pix_val = 0;
 
     int i;
@@ -221,10 +219,10 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
     for (i = 0; i < num_rows; i++) {
         int j;
 
-        #if OMP
+        #if OMP 
             #pragma omp parallel for
         #endif
-            for (j = 0; j < num_cols; j++)
+            for (j = 0; j < num_cols; j++) 
             // don't want to remove the edges
             {
             if (i == num_rows - 1 || j == num_cols - 1) {
@@ -237,10 +235,10 @@ void compute_E(pixel_t** image_pixel_array, double** E, int num_rows, int num_co
             }
             // // counter for max and min pixel value
             // if (E[i][j] > max_pix_val){
-            //     max_pix_val = E[i][j];
+            //     max_pix_val = E[i][j];    
             // } if (E[i][j] < min_pix_val){
             //     min_pix_val = E[i][j];
-            // }
+            // } 
         }
     }
     // // debug: print out gradient file;
@@ -256,13 +254,13 @@ void compute_M(double** E, double** M, int num_rows, int num_cols) {
     for (i = 0; i < num_rows; i++) {
         int j;
 
-        #if OMP
+        #if OMP 
         #pragma omp parallel for
         #endif
 
         for (j = 0; j < num_cols; j++) {
             double middle = M[i][j];
-
+            
             double left;
             double right;
             if (j - 1 < 0) {
@@ -304,7 +302,7 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
     int min_cost = last_row[0];
 
     // CHANGE TO OMP REDUCE!
-    // #if OMP
+    // #if OMP 
     //     #pragma omp parallel for
     // #endif
     for (j = 1; j < num_cols; j++) {
@@ -312,7 +310,7 @@ void find_seam(double** M, int* seam_path, int num_rows, int num_cols) {
         if (current_cost < min_cost) {
             min_cost = current_cost;
             min_cost_col = j;
-        }
+        } 
     }
     M[num_rows - 1][min_cost_col] = MAX_ENERGY_SUM;
 
@@ -386,7 +384,7 @@ void remove_seam(pixel_t*** image_pixel_array_pt, int* seam_path, int* rows, int
 
     // need to shift every pixel after the seam over to the "left"
     int i;
-    #if OMP
+    #if OMP 
         #pragma omp parallel for
     #endif
     for (i = 0; i < num_rows; i++) {
@@ -405,8 +403,8 @@ void remove_seam(pixel_t*** image_pixel_array_pt, int* seam_path, int* rows, int
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-// this function parses the ppm file and put all the pixels RGB values in a
-//  2D matrix. returns the pointer to this 2D array;
+// this function parses the ppm file and put all the pixels RGB values in a 
+//  2D matrix. returns the pointer to this 2D array; 
 pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     FILE *ppm_file = fopen(file, "r");
     if (ppm_file == NULL) {
@@ -416,11 +414,11 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     }
 
     int bufsize = 1500;
-    char buf[bufsize];
+    char buf[bufsize]; 
     int max_px_val;
-    int num_rows, num_cols;
+    int num_rows, num_cols; 
 
-    // first 2 lines include image mode and dimension;
+    // first 2 lines include image mode and dimension; 
     fgets(buf, bufsize, ppm_file);
     // reads in image dimension
     if (fgets(buf, bufsize, ppm_file) != NULL){
@@ -429,7 +427,7 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     }
 
     // pass this global value to other functions;
-    *rows = num_rows;
+    *rows = num_rows; 
     *cols = num_cols;
 
     // reads in max pixel value;
@@ -446,14 +444,14 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
 
 
     // now parse all the rgb info into a matrix;
-    // image is represented by a list of structs, each struct has R, G, B field
-    int image_size = num_cols * num_rows;
-
+    // image is represented by a list of structs, each struct has R, G, B field 
+    int image_size = num_cols * num_rows; 
+    
     // --------------------------------TODO: allocating a 1D array; --------------------------------
-    // pixel_t *matrix = (pixel_t *)malloc(sizeof(pixel_t) * num_cols * num_rows);
+    // pixel_t *matrix = (pixel_t *)malloc(sizeof(pixel_t) * num_cols * num_rows); 
     // --------------------------------TODO: allocating a 1D array; --------------------------------
 
-    // allocate a 2D array for the pixel matrix
+    // allocate a 2D array for the pixel matrix 
     pixel_t **matrix = (pixel_t **) malloc(sizeof(pixel_t *) * num_rows);
     if (matrix == NULL){
         printf("ERROR: Malloc failed- matrix\n");
@@ -468,7 +466,7 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
         }
     }
 
-    int curr_row, curr_col;
+    int curr_row, curr_col; 
     int pixel_count = 0;
 
     while (fgets(buf, bufsize ,ppm_file) != NULL){
@@ -478,34 +476,34 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
         }
         char *buf_ptr = buf;
         int R, G, B;
-        int offset;
+        int offset; 
 
-        // each line contains 8 groups of RGB pixel values; reading them 3 at a
+        // each line contains 8 groups of RGB pixel values; reading them 3 at a 
         //  time, and store them to RGB fields;
         while (sscanf(buf_ptr, "%d %d %d%n",  \
                           &R, &G, &B, &offset) == 3){
 
             // calculate curr_row, curr_col;
-            curr_row = pixel_count / num_cols;
+            curr_row = pixel_count / num_cols; 
             curr_col = pixel_count % num_cols;
 
             (matrix[curr_row][curr_col]).R = R;
             (matrix[curr_row][curr_col]).G = G;
             (matrix[curr_row][curr_col]).B = B;
 
-            buf_ptr = buf_ptr + offset;
+            buf_ptr = buf_ptr + offset; 
             pixel_count ++;
         }
     }
 
-    // allowing other funcitons to access matrix:
+    // allowing other funcitons to access matrix: 
     // *mx = matrix;
     fclose(ppm_file);
     #if INFO_ON
     printf("Finished - convert input image into matrix\n");
     #endif
     return matrix;
-}
+} 
 
 void output_image(pixel_t** matrix, char* output_file,  int num_rows, int num_cols, int max_px_val){
 
@@ -516,7 +514,7 @@ void output_image(pixel_t** matrix, char* output_file,  int num_rows, int num_co
         exit(1);
     }
 
-    // write file header first;
+    // write file header first; 
     fprintf(fp, "P3\n%d %d\n%d\n", num_cols, num_rows, max_px_val);
 
     // write the rest of data;
@@ -525,7 +523,7 @@ void output_image(pixel_t** matrix, char* output_file,  int num_rows, int num_co
     for (row = 0; row < num_rows; row ++){
         // write each row as a row in the ppm file as well;
         for (col = 0; col < num_cols; col ++) {
-            // unpack matrix values and write to file;
+            // unpack matrix values and write to file; 
             curr_pixel = matrix[row][col];
 
             if (col > 0){
@@ -552,7 +550,7 @@ void intermediary_img(double ** matrix, char* output_file,  \
         exit(1);
     }
 
-    // write file header first;
+    // write file header first; 
     fprintf(fp, "P3\n%d %d\n%d\n", num_cols, num_rows, max_px_val);
 
     // write the rest of data;
@@ -561,10 +559,10 @@ void intermediary_img(double ** matrix, char* output_file,  \
     for (row = 0; row < num_rows; row ++){
         // write each row as a row in the ppm file as well;
         for (col = 0; col < num_cols; col ++) {
-            // // unpack matrix values and write to file;
+            // // unpack matrix values and write to file; 
             curr_value = matrix[row][col];
 
-            // scale up so it's bright enough to see;
+            // scale up so it's bright enough to see; 
             int rand_offset = 1000;
             // convert to a scale of 0 to 255
             curr_value = (curr_value + rand_offset)* 255  / (max_px_val - min_px_val) ;

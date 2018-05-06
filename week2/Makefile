@@ -2,8 +2,8 @@ CC=gcc
 DEBUG=0
 CFLAGS=-g -O3 -Wall -DDEBUG=$(DEBUG)
 
-CFILES = seam.c cycletimer.c
-HFILES = seam.h cycletimer.h
+CFILES = seam.c cycletimer.c sort.c
+HFILES = seam.h cycletimer.h sort.h
 LDFLAGS= -lm
 OMP=-fopenmp -DOMP
 
