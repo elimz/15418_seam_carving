@@ -79,7 +79,6 @@ int main(){
         omp_set_num_threads(nthread);
     #endif
 
-
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
 
@@ -96,66 +95,31 @@ int main(){
         #endif
 
         // randomly select NUM_SEAMS_TO_TRY number of seams, find their energy, 
-        //  and remove the seam with lowest energy
+        // and remove the seam with lowest energy
         int idx;
         for (idx = 0; idx < NUM_SEAMS_TO_TRY; idx++) {
             first_row_indices[idx] = rand() % (num_cols - 1);
         }
 
-        // New: each thread keeps a copy of the smallest cost path, and use omp 
-        // reduce to find the smallest of all
-        // int start_pos_partition (int N, int P, int i)
+        int trial_num;
         double smallest_cost_path = INT_MAX * 1.0;
         int smallest_cost_index = -1;
 
         #if OMP 
-            // // each thread keeps a copy of the smallest cost path, and use omp
-            // // reduce to find the smallest of all
-            // int my_tid, start_num, end_num;
-            // int trial_index; 
-            // #pragma omp parallel num_threads(nthread) private (my_tid, start_num, end_num, trial_index) 
-            // {
-            //     my_tid = omp_get_thread_num();
-            //     start_num = start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid);
-            //     end_num = (my_tid == nthread - 1)? 
-            //             NUM_SEAMS_TO_TRY : 
-            //             start_pos_partition(NUM_SEAMS_TO_TRY, nthread, my_tid + 1);
-            //     printf("-------- tid = %d, start = %d, end = %d\n", my_tid, start_num, end_num);
-
-            //     for (trial_index = start_num; trial_index < end_num; trial_index ++){
-            //         seam_paths[trial_index][0] = first_row_indices[trial_index];
-            //         double path_cost = find_seam(E, seam_paths[trial_index], num_rows, num_cols);
-            //         if (path_cost < smallest_cost_path) {
-            //             smallest_cost_index = trial_index;
-            //         }
-            //     }
-            // }
-
-            int trial_index;
-            // non-OMP version, 1 trial_index calculates all of the seams;
-            #pragma omp parallel for reduction (min : smallest_cost_path) num_threads (nthread) private (trial_index)
+            #pragma omp parallel shared(smallest_cost_path, smallest_cost_index)
             {
-                for (trial_index = 0; trial_index < NUM_SEAMS_TO_TRY; trial_index++) {
-                    seam_paths[trial_index][0] = first_row_indices[trial_index];
-                    double path_cost = find_seam(E, seam_paths[trial_index], num_rows, num_cols);
-                    if (path_cost < smallest_cost_path) {
-                        smallest_cost_index = trial_index;
-                    }
-                    printf("\n OMP -  min trial_index = %d, min_cost = %d\n", trial_index, smallest_cost_path);
-                }
-            }
-        #else
-            int trial_index;
-            // non-OMP version, 1 trial_index calculates all of the seams;
-            for (trial_index = 0; trial_index < NUM_SEAMS_TO_TRY; trial_index++) {
-                seam_paths[trial_index][0] = first_row_indices[trial_index];
-                double path_cost = find_seam(E, seam_paths[trial_index], num_rows, num_cols);
+            #pragma omp for
+        #endif
+            for (trial_num = 0; trial_num < NUM_SEAMS_TO_TRY; trial_num++) {
+                seam_paths[trial_num][0] = first_row_indices[trial_num];
+                double path_cost = find_seam(E, seam_paths[trial_num], num_rows, num_cols);
                 if (path_cost < smallest_cost_path) {
-                    smallest_cost_index = trial_index;
-                    
+                    smallest_cost_index = trial_num;
                 }
             }
-            printf("\n min trial_index = %d, min_cost = %lf\n", trial_index, smallest_cost_path);
+
+        #if OMP
+            }       /*  ending pragma    */
         #endif
 
 
@@ -169,6 +133,7 @@ int main(){
         // printf("Finished coloring seam\n");
         
         // remove the seam from the image, also sets new values for num_rows and num_cols
+        // printf("smallest_cost_index: %d\n", smallest_cost_index);
         remove_seam(&image_pixel_array, seam_paths[smallest_cost_index], &num_rows, &num_cols);
         // printf("Finished removing seam\n");
     }
@@ -307,7 +272,6 @@ double find_seam(double* E, int* seam_path, int num_rows, int num_cols) {
     // traverse downwards and greedily pick the least energy cost neighbor
 
     int i;
-    // double sum = E[0][seam_path[0]];
     double sum = E[seam_path[0]];
     for (i = 1; i < num_rows; i++) {
         int prev_col = seam_path[i - 1];
@@ -425,10 +389,6 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     // image is represented by a list of structs, each struct has R, G, B field 
     int image_size = num_cols * num_rows; 
     
-    // --------------------------------TODO: allocating a 1D array; --------------------------------
-    // pixel_t *matrix = (pixel_t *)malloc(sizeof(pixel_t) * num_cols * num_rows); 
-    // --------------------------------TODO: allocating a 1D array; --------------------------------
-
     // allocate a 2D array for the pixel matrix 
     pixel_t **matrix = (pixel_t **) malloc(sizeof(pixel_t *) * num_rows);
     if (matrix == NULL){
@@ -475,7 +435,6 @@ pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file){
     }
 
     // allowing other funcitons to access matrix: 
-    // *mx = matrix;
     fclose(ppm_file);
     printf("Finished - convert input image into matrix\n");
     return matrix;
@@ -549,19 +508,15 @@ void intermediary_img(double** matrix, char* output_file,
             if (int_curr_value <  0 ){
                 int_curr_value = 0;
             }
-
-
+            
             if (col > 0){
                 fprintf(fp, " ");   // appending space to later items
             }
-
             fprintf(fp, "%d %d %d", int_curr_value, int_curr_value, int_curr_value);
-            // fprintf(fp, "%d", int_curr_value);
             // last item appends a new line at the end;
             if (col == num_cols - 1){
                 fprintf(fp, "\n");
             }
-            // printf("%lf\n", curr_value);
         }
     }
     printf("Finished - writing intermediary image to output.\n");
