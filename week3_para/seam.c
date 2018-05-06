@@ -20,32 +20,25 @@
 // #define OMP 1
 // #endif
 
-#ifndef TIMING 
-#define TIMING 1
+#ifndef TIME_SPLITS       // showing time splits for each phase 
+#define TIME_SPLITS 1
 #endif
 
 #ifndef BLOCK_ASSIGN 
 #define BLOCK_ASSIGN 1
 #endif
 
+#define NTHREAD 8       // num of OMP threads
+
+
 char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
-// number of threads
-// int nthread = 8;
-int main(){
-    
-    int nthread = 17;
 
-    int num_thread;
-    for (num_thread = 1; num_thread < nthread; num_thread ++){
-        main_support(num_thread);
-    }
-    return 1;
-}
 
-int main_support(int nthread){
+
+int main() {
 
     int num_rows, num_cols, original_cols, max_px_val;
     time_t t;
@@ -78,28 +71,29 @@ int main_support(int nthread){
     srand((unsigned) time(&t));
 
     // array of timing data for different sections
-    #if TIMING
     double start = currentSeconds();
+    
+    #if TIME_SPLITS
     double timing[2] = {0.0, 0.0};
     #define T_COMP_E            0       // compute energy map
     #define T_FIND_SEAM         1       // find seam
     #endif
 
     #if OMP 
-        omp_set_num_threads(nthread);
+        omp_set_num_threads(NTHREAD);
     #endif
 
     // remove NUM_SEAMS_TO_REMOVE number of lowest cost seams
     for (seam_num = 0; seam_num < NUM_SEAMS_TO_REMOVE; seam_num++) {
 
         // compute energy map and store in engery_array
-        #if TIMING
+        #if TIME_SPLITS
         double t_start_E = currentSeconds();
         #endif
 
-        compute_E(image_pixel_array, E, num_rows, num_cols, nthread);
+        compute_E(image_pixel_array, E, num_rows, num_cols);
         
-        #if TIMING
+        #if TIME_SPLITS
         double t_end_E = currentSeconds();
         timing[T_COMP_E] += (t_end_E - t_start_E);
         #endif
@@ -133,7 +127,7 @@ int main_support(int nthread){
         #endif
 
 
-        #if TIMING
+        #if TIME_SPLITS
         double t_end_seam = currentSeconds();
         timing[T_FIND_SEAM] += (t_end_seam - t_end_E);
         #endif
@@ -148,12 +142,12 @@ int main_support(int nthread){
 
 
     double delta = currentSeconds() - start;
-    // printf("%d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
-    printf("    %d threads - %.3f seconds; compute_E= %.3f, find_seam = %.3f\n", nthread, delta, timing[T_COMP_E], timing[T_FIND_SEAM]);
+    printf("%d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
+    // printf("    %d threads - %.3f seconds; compute_E= %.3f, find_seam = %.3f\n", NTHREAD, delta, timing[T_COMP_E], timing[T_FIND_SEAM]);
 
-    #if TIMING
-    // printf("------ TIMING SPLITS ------\n");
-    // printf("    T_COMP_E = %f\n    T_FIND_SEAM = %f\n ", timing[T_COMP_E], timing[T_FIND_SEAM]);
+    #if TIME_SPLITS
+    printf("------ TIMING SPLITS ------\n");
+    printf("    T_COMP_E = %f\n    T_FIND_SEAM = %f\n ", timing[T_COMP_E], timing[T_FIND_SEAM]);
     #endif
 
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
@@ -203,29 +197,29 @@ int start_pos_partition (int N, int P, int i){
         return i * base + extra;
 }
 
-// takes in an image, and return an energy map calculated by gradient magnitude
-// void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
-void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols, int nthread) {
+void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
     // find my thread id, and work region
-    #if OMP
-        int i, j, my_tid;
-        for (i = 0; i < num_rows; i++) {
-            double temp_array[8];
-            int temp_counter;
-            // New partition: block assignment, break down the task by total num_cols / nthread;
-            #pragma omp parallel num_threads(nthread) shared (i) private (j, my_tid, temp_array, temp_counter) 
-            {
-                my_tid = omp_get_thread_num();
-                temp_counter = 0;
-                int store_start_idx;              // starting index of the 8 numbers
-                
-                int my_start = start_pos_partition(num_cols, nthread, my_tid);
-                int my_end = (my_tid == nthread - 1)? num_cols: start_pos_partition(num_cols, nthread, my_tid + 1);
-                // printf(" compute_E - my tid = %d, chunk_szie = %d\n",  my_tid, my_end - my_start);
+    #if OMP 
+        int i, j, my_tid; 
+        double temp_array[8];       // for bulk write to memory
+        int temp_counter;   
+        int store_start_idx; 
 
-                for (j = my_start; j < my_end; j++) {
-                    // don't want to remove the edge
+        #pragma omp parallel num_threads(NTHREAD) \
+            private (my_tid, temp_array, temp_counter, store_start_idx, i, j)
+        {
+            // find start row and end row; nested for loop compute it 
+            my_tid = omp_get_thread_num();
+            temp_counter = 0; 
+            
+            int start_row = start_pos_partition(num_rows, NTHREAD, my_tid);
+            int end_row = (my_tid == NTHREAD - 1)? num_rows: start_pos_partition(num_rows, NTHREAD, my_tid + 1);
+            
+            for (i = start_row; i < end_row; i ++){
+                for (j = 0; j < num_cols; j ++) {
+                    // compute
                     if (i == num_rows - 1 || j == num_cols - 1) {
+                        // don't want to remove the edge
                         temp_array[temp_counter] = MAX_ENERGY;
                     } else {
                         temp_array[temp_counter] = pixel_difference(image_pixel_array[i][j],
@@ -234,14 +228,14 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                                                image_pixel_array[i][j + 1]);
                     }
 
+                    // set the addr to write to; 
                     if (temp_counter == 0){
                         store_start_idx = i * num_cols + j; 
                     }
                     // store things at location rep by current counter;
                     temp_counter ++; 
-
-                    if (temp_counter == 8){
-                        // flush to memory; 
+                    // flush to memory; 
+                    if (temp_counter == 8){ 
                         int offset; 
                         for (offset = 0; offset < 8; offset ++){
                             E[offset + store_start_idx] = temp_array[offset];
@@ -251,19 +245,18 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
                     }
 
                     // edge case: last chunk has size < 8; 
-                    if (j == my_end - 1) {
+                    if (j == end_row - 1) {
                         // store everything left: 
-                        int chunk_left = (my_end - my_start) % 8;
+                        int chunk_left = (end_row - start_row) % 8;
                         int offset; 
                         for (offset = 0; offset < chunk_left; offset ++){
                             E[offset + store_start_idx] = temp_array[offset];
                         }
-                        // temp_counter = 0;
                     }
                 }
             }
         }
-    #else 
+    #else
         int i, j; 
         for (i = 0; i < num_rows; i++) {
             for (j = 0; j < num_cols; j++) {
@@ -281,7 +274,6 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
         }
     #endif
 }
-
 
 
 
