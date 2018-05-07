@@ -28,17 +28,23 @@
 #define BLOCK_ASSIGN 1
 #endif
 
-#define NTHREAD 8       // num of OMP threads
-
+// #define NTHREAD 8       // num of OMP threads
+int max_threads = 9; 
 
 char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
+int main(){
+    int num_thread; 
+    for (num_thread = 8; num_thread < max_threads; num_thread ++){
+        main_support(num_thread);
+    }
+    return 1;
+}
 
 
-
-int main() {
+int main_support(int NTHREAD) {
 
     int num_rows, num_cols, original_cols, max_px_val;
     time_t t;
@@ -91,7 +97,7 @@ int main() {
         double t_start_E = currentSeconds();
         #endif
 
-        compute_E(image_pixel_array, E, num_rows, num_cols);
+        compute_E(image_pixel_array, E, num_rows, num_cols, NTHREAD);
         
         #if TIME_SPLITS
         double t_end_E = currentSeconds();
@@ -142,13 +148,13 @@ int main() {
 
 
     double delta = currentSeconds() - start;
-    printf("%d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
-    // printf("    %d threads - %.3f seconds; compute_E= %.3f, find_seam = %.3f\n", NTHREAD, delta, timing[T_COMP_E], timing[T_FIND_SEAM]);
+    // printf("%d seams of a %dx%d image removed in %.3f seconds\n", NUM_SEAMS_TO_REMOVE, original_cols, num_rows, delta);
+    printf("    %d threads - %.3f seconds; compute_E= %.3f, find_seam = %.3f\n", NTHREAD, delta, timing[T_COMP_E], timing[T_FIND_SEAM]);
 
-    #if TIME_SPLITS
-    printf("------ TIMING SPLITS ------\n");
-    printf("    T_COMP_E = %f\n    T_FIND_SEAM = %f\n ", timing[T_COMP_E], timing[T_FIND_SEAM]);
-    #endif
+    // #if TIME_SPLITS
+    // printf("------ TIMING SPLITS ------\n");
+    // printf("    T_COMP_E = %f\n    T_FIND_SEAM = %f\n ", timing[T_COMP_E], timing[T_FIND_SEAM]);
+    // #endif
 
     output_image(image_pixel_array, output_file, num_rows, num_cols, max_px_val);
 
@@ -173,14 +179,12 @@ double pixel_difference(pixel_t pU, pixel_t pD, pixel_t pL, pixel_t pR) {
     int dxG = abs(pR.G - pL.G);
     int dxB = abs(pR.B - pL.B);
     double deltx2 = (dxR + dxG + dxB) / 2.0;
-    // double deltx2 = (dxR*dxR + dxG*dxG + dxB*dxB);
 
     // find partial derivative for y
     int dyR = abs(pD.R - pU.R);
     int dyG = abs(pD.G - pU.G);
     int dyB = abs(pD.B - pU.B);
     double delty2 = (dyR + dyG + dyB) / 2.0;
-    // double delty2 = (dyR*dyR + dyG*dyG + dyB*dyB);
 
     // return magnitude for gradient magnitude
     // return sqrt(deltx2 + delty2);
@@ -197,7 +201,7 @@ int start_pos_partition (int N, int P, int i){
         return i * base + extra;
 }
 
-void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
+void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols, int NTHREAD) {
     // find my thread id, and work region
     #if OMP 
         int i, j, my_tid; 
@@ -276,13 +280,11 @@ void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_col
 }
 
 
-
 // finds the seam from E
 double find_seam(double* E, int* seam_path, int num_rows, int num_cols) {
 
     // find min seams with least energy cost pixel in first row
     // traverse downwards and greedily pick the least energy cost neighbor
-
     int i;
     double sum = E[seam_path[0]];
     for (i = 1; i < num_rows; i++) {
