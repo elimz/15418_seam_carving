@@ -25,7 +25,7 @@ typedef struct pixel {
 pixel_t** build_matrix(int *rows, int *cols, int *max_px, char* file);
 void find_energy_map(pixel_t** image_pixel_array, double** energy_array, int num_rows, int num_cols);
 void output_image(pixel_t** image_pixel_array, char* output_file, int num_cols, int num_rows, int max_px_val);
-void compute_E(pixel_t** imagePixelArray, double* E, int num_rows, int num_cols, int NTHREAD);
+void compute_E(pixel_t** imagePixelArray, double* E, int num_rows, int num_cols);
 // void compute_M(double** E, double** M, int num_rows, int num_cols);
 double find_seam(double* E, int* seam_path, int num_rows, int num_cols);
 void color_seam(pixel_t*** imagePixelArray, int* seam_paths, int num_rows, int num_cols, int max_px_val, char* seam_file);

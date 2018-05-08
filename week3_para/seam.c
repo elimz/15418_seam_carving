@@ -28,23 +28,13 @@
 #define BLOCK_ASSIGN 1
 #endif
 
-// #define NTHREAD 8       // num of OMP threads
-int max_threads = 9; 
+#define NTHREAD 8       // num of OMP threads
 
 char* input_file = "../images/tower.ppm";
 char* output_file = "output.ppm";
 char* seam_file = "output_seam.ppm";
 
-int main(){
-    int num_thread; 
-    for (num_thread = 8; num_thread < max_threads; num_thread ++){
-        main_support(num_thread);
-    }
-    return 1;
-}
-
-
-int main_support(int NTHREAD) {
+int main() {
 
     int num_rows, num_cols, original_cols, max_px_val;
     time_t t;
@@ -97,7 +87,7 @@ int main_support(int NTHREAD) {
         double t_start_E = currentSeconds();
         #endif
 
-        compute_E(image_pixel_array, E, num_rows, num_cols, NTHREAD);
+        compute_E(image_pixel_array, E, num_rows, num_cols);
         
         #if TIME_SPLITS
         double t_end_E = currentSeconds();
@@ -201,7 +191,7 @@ int start_pos_partition (int N, int P, int i){
         return i * base + extra;
 }
 
-void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols, int NTHREAD) {
+void compute_E(pixel_t** image_pixel_array, double* E, int num_rows, int num_cols) {
     // find my thread id, and work region
     #if OMP 
         int i, j, my_tid; 
